@@ -1,0 +1,19 @@
+{
+  "name": "app-daemon",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build/daemon.js",
+  "scripts": {
+    "start": "tsc && node build/daemon.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/open-game-server-host/app-daemon.git"
+  },
+  "dependencies": {
+    "@types/dockerode": "^4.0.0",
+    "@types/node": "^25.0.9",
+    "axios": "^1.13.2",
+    "dockerode": "^4.0.9"
+  }
+}
