@@ -126,8 +126,7 @@ export class Container {
         
         const globalConfig = await getGlobalConfig();
         const container = await createDockerContainer({
-            // max_cpus: Math.min(globalConfig.segment.cpus * this.options.segments, maxCpus),
-            max_cpus: 0.75,
+            max_cpus: Math.min(globalConfig.segment.cpus * this.options.segments, maxCpus),
             environment_variables: {},
             image: this.options.runtimeImage,
             memory_mb: globalConfig.segment.memory_mb * this.options.segments,
