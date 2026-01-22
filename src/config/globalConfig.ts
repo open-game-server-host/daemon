@@ -4,6 +4,7 @@ import { Config } from "./config";
 
 interface Global {
     segment: {
+        cpus: number;
         memory_mb: number;
         storage_gb: number;
         price: {
@@ -23,7 +24,7 @@ class GlobalConfig extends Config<Global> {
     constructor() {
         super(
             "Global",
-            constants.config.github_user_content_url,
+            constants.github_user_content_url,
             "configs",
             getGlobalConfigBranch(),
             "global.json"

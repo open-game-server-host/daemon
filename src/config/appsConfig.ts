@@ -2,6 +2,8 @@ import { constants } from "../constants";
 import { getAppsBranch } from "../env";
 import { Config } from "./config";
 
+type Apps = {[appId: string]: App};
+
 export interface App {
     name: string;
     description: string;
@@ -49,11 +51,11 @@ export interface Version {
     recommended_segments?: number;
 }
 
-class AppsConfig extends Config<App[]> {
+class AppsConfig extends Config<Apps> {
     constructor() {
         super(
             "Apps",
-            constants.config.github_user_content_url,
+            constants.github_user_content_url,
             "apps",
             getAppsBranch(),
             "output/apps.json"
@@ -63,6 +65,6 @@ class AppsConfig extends Config<App[]> {
 
 const appsConfig = new AppsConfig();
 
-export async function getApps(): Promise<App[]> {
+export async function getApps(): Promise<Apps> {
     return appsConfig.getConfig();
 }
