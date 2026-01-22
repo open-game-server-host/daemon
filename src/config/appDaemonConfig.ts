@@ -3,7 +3,7 @@ import { getAppDaemonConfigBranch } from "../env";
 import { Config } from "./config";
 
 interface AppDaemon {
-
+    port: number;
 }
 
 class AppDaemonConfig extends Config<AppDaemon> {
@@ -20,6 +20,6 @@ class AppDaemonConfig extends Config<AppDaemon> {
 
 const appDaemonConfig = new AppDaemonConfig();
 
-export async function getDaemonConfig(): Promise<AppDaemon> {
+export async function getAppDaemonConfig(): Promise<AppDaemon> {
     return appDaemonConfig.getConfig();
 }
