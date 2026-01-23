@@ -1,5 +1,7 @@
 import Docker from "dockerode";
+import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
+import { Logger } from "./logger";
 import { getMb } from "./utils";
 
 const docker = new Docker({
@@ -36,24 +38,33 @@ export async function isDockerContainerRunning(container: string | Docker.Contai
 	return await getContainer(container).inspect().then(info => info.State.Running).catch(error => false);
 }
 
-export async function pullDockerImage(registryUrl: string, fullImageName: string) {
-    await docker.pull(fullImageName, {
-        authconfig: {
-            username: "", // TODO
-            password: "", // TODO
-            serveraddress: registryUrl
-        }
-    }).then(stream => {
-        docker.modem.followProgress(stream, error => {
-            if (error) {
-                // TODO
-                throw error;
-            }
-        }, () => {});
-    }).catch(error => {
-        // TODO
-        throw error;
-    });
+export async function pullDockerImage(registryUrl: string, fullImageName: string, logger: Logger) {
+	logger.info("Pulling Docker image", {
+		image: fullImageName
+	});
+	await new Promise<void>(async (res, rej) => {
+		await docker.pull(fullImageName, {
+			authconfig: {
+				username: getCredentials().github_packages_read_username,
+				password: getCredentials().github_packages_read_token,
+				serveraddress: registryUrl
+			}
+		}).then(stream => {
+			docker.modem.followProgress(stream, error => {
+				if (error) {
+					// TODO
+					throw error;
+				}
+				logger.info("Finished pulling Docker image", {
+					image: fullImageName
+				});
+				res();
+			}, () => {});
+		}).catch(error => {
+			console.log(error);
+			rej(error);
+		});
+	});
 }
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {

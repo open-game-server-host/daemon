@@ -7,6 +7,8 @@ interface Daemon {
     app_archives_path: string;
     container_files_path: string;
     stop_seconds_timeout: number;
+    runtime_images_branch: string;
+    runtime_images_repo: string;
 }
 
 class DaemonConfig extends Config<Daemon> {

@@ -3,7 +3,7 @@ import os from "os";
 import { App, Variant, Version } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
-import { createDockerContainer, getDockerContainer, isDockerContainerRunning, removeDockerContainer } from "../docker";
+import { createDockerContainer, doesDockerContainerExist, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
 import { Logger } from "../logger";
 import { sleep } from "../utils";
 
@@ -116,19 +116,26 @@ export class Container {
 
         // TODO check whether service is locked
 
-        // TODO pull runtime image
+        const daemonConfig = await getDaemonConfig();
+
+        // Validate and update runtime image
+        let fullImagePath = daemonConfig.runtime_images_repo.endsWith("/") ? daemonConfig.runtime_images_repo : `${daemonConfig.runtime_images_repo}/`;
+        fullImagePath += await this.getRuntimeImage();
+        await pullDockerImage(daemonConfig.runtime_images_repo, fullImagePath, this.logger);
 
         // TODO run auto-patcher
 
-        // TODO remove container to update runtime image
+        // Remove old container to use new runtime image
         const containerId = this.getContainerId();
-        await removeDockerContainer(containerId);
+        if (await doesDockerContainerExist(containerId)) {
+            await removeDockerContainer(containerId);
+        }
         
         const globalConfig = await getGlobalConfig();
         const container = await createDockerContainer({
             max_cpus: Math.min(globalConfig.segment.cpus * this.options.segments, maxCpus),
             environment_variables: {},
-            image: this.options.runtimeImage,
+            image: fullImagePath,
             memory_mb: globalConfig.segment.memory_mb * this.options.segments,
             name: containerId,
             bind_mounts: [],
@@ -227,5 +234,14 @@ export class Container {
     async terminate() {
         this.logger.info("Terminating");
         this.terminated = true;
+    }
+
+    async getRuntimeImage(): Promise<string> {
+        let runtimeImage = this.options.runtimeImage;
+        if (!this.options.version?.supported_runtime_images.includes(runtimeImage)) {
+            runtimeImage = this.options.version?.default_runtime_image || this.options.variant.default_runtime_image;
+        }
+        const daemonConfig = await getDaemonConfig();
+        return `${runtimeImage}:${daemonConfig.runtime_images_branch}`;
     }
 }

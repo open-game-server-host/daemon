@@ -15,7 +15,7 @@ async function init() {
         variant,
         version,
         name: "Test",
-        runtimeImage: "hello-world",
+        runtimeImage: "java25",
         segments: 1
     }));
     await initHttpServer();
