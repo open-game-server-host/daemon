@@ -9,6 +9,9 @@ interface Daemon {
     stop_seconds_timeout: number;
     runtime_images_branch: string;
     runtime_images_repo: string;
+    app_installer_image: string;
+    previous_logs_to_show_on_connect: number;
+    websocket_event_push_frequency_ms: number;
 }
 
 class DaemonConfig extends Config<Daemon> {

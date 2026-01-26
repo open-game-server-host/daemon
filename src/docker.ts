@@ -69,7 +69,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {
 		const parsedEnvVariables: string[] = [];
-        Object.entries(options.environment_variables).forEach((value, key) => {
+        Object.entries(options.environment_variables).forEach(([key, value]) => {
             parsedEnvVariables.push(`${key}=${value}`);
         });
 
@@ -125,6 +125,9 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 
 export async function removeDockerContainer(containerId: string) {
     const container = getContainer(containerId);
+	if (!doesDockerContainerExist(container)) {
+		return;
+	}
     await container.remove({
         force: true, // Kill container before removing it
         v: true // Remove anonymous volumes

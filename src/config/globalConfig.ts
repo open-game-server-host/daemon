@@ -4,7 +4,7 @@ import { Config } from "./config";
 
 interface Global {
     segment: {
-        cpus: number;
+        max_cpus: number;
         memory_mb: number;
         storage_gb: number;
         price: {

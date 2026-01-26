@@ -1,6 +1,7 @@
 import { constants } from "../constants";
 import { getAppsBranch } from "../env";
 import { Config } from "./config";
+import { getDaemonConfig } from "./daemonConfig";
 
 type Apps = {[appId: string]: App};
 
@@ -67,4 +68,9 @@ const appsConfig = new AppsConfig();
 
 export async function getApps(): Promise<Apps> {
     return appsConfig.getConfig();
+}
+
+export async function getAppArchivePath(appId: string, variantId: string, versionId: string): Promise<string> {
+    const daemonConfig = await getDaemonConfig();
+    return `${daemonConfig.app_archives_path}/${appId}-${variantId}-${versionId}.7z`;
 }

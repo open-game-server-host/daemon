@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express";
-import { body, param } from "express-validator";
+import { body, check, param } from "express-validator";
 import { getContainer } from "../../container/container";
 import { ContainerAuthLocals } from "../auth/containerAuth";
 import { UserAuthLocals } from "../auth/userAuth";
@@ -17,7 +17,7 @@ type ContainerResponse<Body = any> = Response<Body, ContainerLocals>;
 containerHttpRouter.post("/:containerId/start", param("containerId").isString(), async (req: ContainerRequest, res: ContainerResponse) => {
     const container = getContainer(req.params.containerId);
     if (container) {
-        await container.start();
+        container.start();
     } else {
         throw new Error("TODO");
     }
@@ -27,7 +27,7 @@ containerHttpRouter.post("/:containerId/start", param("containerId").isString(),
 containerHttpRouter.post("/:containerId/stop", param("containerId").isString(), async (req: ContainerRequest, res: ContainerResponse) => {
     const container = getContainer(req.params.containerId);
     if (container) {
-        await container.stop();
+        container.stop();
     } else {
         throw new Error("TODO");
     }
@@ -37,17 +37,17 @@ containerHttpRouter.post("/:containerId/stop", param("containerId").isString(), 
 containerHttpRouter.post("/:containerId/restart", param("containerId").isString(), async (req: ContainerRequest, res: ContainerResponse) => {
     const container = getContainer(req.params.containerId);
     if (container) {
-        await container.restart();
+        container.restart();
     } else {
         throw new Error("TODO");
     }
     res.send();
 });
 
-containerHttpRouter.post("/:containerId/kill", param("containerId").isString(), async (req:ContainerRequest, res: ContainerResponse) => {
+containerHttpRouter.post("/:containerId/kill", param("containerId").isString(), async (req: ContainerRequest, res: ContainerResponse) => {
     const container = getContainer(req.params.containerId);
     if (container) {
-        await container.kill();
+        container.kill();
     } else {
         throw new Error("TODO");
     }
@@ -60,19 +60,33 @@ interface CommandBody {
 containerHttpRouter.post("/:containerId/command", param("containerId").isString(), body("command").isString().trim(), async (req: ContainerRequest<CommandBody>, res: ContainerResponse) => {
     const container = getContainer(req.params.containerId);
     if (container) {
-        await container.command(req.body.command);
+        container.command(req.body.command);
     } else {
         throw new Error("TODO");
     }
     res.send();
 });
 
-containerHttpRouter.post("/:containerId/install", param("containerId").isString(), async (req:ContainerRequest, res: ContainerResponse) => {
-    console.log("TODO");
+interface InstallBody {
+    appId: string;
+    variantId: string;
+    versionId: string;
+}
+containerHttpRouter.post("/:containerId/install", param("containerId").isString(), [
+    check("appId").isString(),
+    check("variantId").isString(),
+    check("versionId").isString(),
+], async (req: ContainerRequest<InstallBody>, res: ContainerResponse) => {
+    const container = getContainer(req.params.containerId);
+    if (container) {
+        container.install(req.body.appId, req.body.variantId, req.body.versionId);
+    } else {
+        throw new Error("TODO");
+    }
     res.send();
 });
 
-containerHttpRouter.post("/:containerId/config", param("containerId").isString(), async (req:ContainerRequest, res: ContainerResponse) => {
+containerHttpRouter.post("/:containerId/config", param("containerId").isString(), async (req: ContainerRequest, res: ContainerResponse) => {
     console.log("TODO");
     res.send();
 });
