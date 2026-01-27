@@ -7,18 +7,17 @@ import { OGSHError } from "../error";
 import { Logger } from "../logger";
 import { getDaemonConfig } from "./daemonConfig";
 
-const logger = new Logger("Startup Files");
+const logger = new Logger("Config: startup files");
 
 let callbacks: (() => void)[] = [];
 let filesDownloaded = false;
 
 export async function updateStartupFiles() {
-    logger.info("Updating");
     // TODO downloading raw blobs from github has a different url to text files so we can't use github_user_content_url defined in constants; for now this is hard coded
     const url = `https://github.com/open-game-server-host/apps/raw/refs/heads/${getAppsBranch()}/output/startup_files.tar`;
     const response = await fetch(url);
     if (!response.body) {
-        throw new Error("Failed to update startup files, response.body was empty");
+        throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
     rmSync(daemonConfig.startup_files_path, { recursive: true, force: true });

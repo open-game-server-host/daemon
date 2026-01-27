@@ -3,6 +3,8 @@ import { HTTPStatus } from "./http/httpStatus";
 export type Errors =
     | "general/unspecified"
 
+    | "config/download-failed"
+
     | "container/not-found"
     | "container/image-pull-failed"
     | "container/create-failed"

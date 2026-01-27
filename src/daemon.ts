@@ -1,5 +1,5 @@
 import { Logger } from "./logger";
-const logger = new Logger();
+const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -30,7 +30,7 @@ async function init() {
         segments: 4,
         runtime: "java"
     }));
-    await initHttpServer();
+    await initHttpServer(logger);
 }
 
 init().then(() => logger.info("Ready"));

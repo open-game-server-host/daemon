@@ -112,7 +112,7 @@ export class Container {
         private readonly id: string,
         private readonly options: ContainerOptions
     ) {
-        this.logger = new Logger(this.getContainerId());
+        this.logger = new Logger(`CONTAINER: ${id}`);
         this.logger.info("Registered");
 
         this.isRunning().then(async running => {
@@ -306,7 +306,7 @@ export class Container {
             });
             const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
             if (!totalNanoCpus) {
-                throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.getContainerId()}'`)
+                throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.id}'`)
             }
             while (running) {
                 await new Promise<void>(res => {
@@ -401,7 +401,7 @@ export class Container {
         this.logger.info("Executing command");
         const container = await getDockerContainer(this.getContainerId());
         if (!await isDockerContainerRunning(container)) {
-            throw new OGSHError("container/offline", `could not execute command for offline container id '${this.getContainerId()}'`);
+            throw new OGSHError("container/offline", `could not execute command for offline container id '${this.id}'`);
         }
         const stream = await container.attach({
             hijack: true,
