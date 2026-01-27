@@ -110,6 +110,13 @@ export class Container {
         this.logger = new Logger(this.getContainerId());
         this.logger.info("Registered");
 
+        this.isRunning().then(async running => {
+            if (!running) {
+                return;
+            }
+            this.monitorContainer(await getDockerContainer(this.getContainerId()))
+        });
+
         (async () => {
             while (!this.terminated) {
                 const action = this.actionQueue.shift();
@@ -199,6 +206,10 @@ export class Container {
 
     private async startAction() {
         this.logger.info("Starting");
+
+        if (await this.isRunning()) {
+            return;
+        }
 
         // TODO check whether service is locked
 
@@ -379,13 +390,16 @@ export class Container {
         if (!await isDockerContainerRunning(container)) {
             throw new Error(`TODO tried to execute command for container id '${this.getContainerId()}' but it was offline`);
         }
-        const attach = await container.attach({
-            logs: false,
+        const stream = await container.attach({
+            hijack: true,
             stdin: true,
-            stderr: false,
-            stdout: false
+            stream: true
         });
-        attach.write(command); // TODO catch error
+        stream.write(`${command}\n`, error => {
+            if (error) {
+                throw error;
+            }
+        });
     }
 
     install(appId: string, variantId: string, versionId: string) {
