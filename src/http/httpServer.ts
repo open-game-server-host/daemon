@@ -1,4 +1,5 @@
 import express, { NextFunction, Request, Response } from "express";
+import { param } from "express-validator";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { containerAuthMiddleware } from "./auth/containerAuth";
 import { internalAuthMiddleware } from "./auth/internalAuth";
@@ -13,7 +14,7 @@ export async function initHttpServer() {
     app.use(express.json());
 
     app.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
-    app.use("/v1/container", userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
+    app.use("/v1/container/:containerId", param("containerId").isString(), userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
 
     app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
         // TODO
