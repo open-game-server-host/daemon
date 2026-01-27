@@ -4,3 +4,4 @@ build/
 credentials.json
 app_archives/
 container_files/
+startup_files/

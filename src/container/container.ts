@@ -3,11 +3,12 @@ import { mkdirSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
 import { EventEmitter } from "stream";
-import { App, getAppArchivePath, getApps, Variant, Version } from "../config/appsConfig";
+import { getApp, getAppArchivePath, getApps, getVariant, getVersion } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
+import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { constants } from "../constants";
-import { createDockerContainer, doesDockerContainerExist, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
+import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
 import { Logger } from "../logger";
 import { sleep } from "../utils";
 import { ContainerStats } from "./stats/containerStats";
@@ -51,9 +52,9 @@ export interface ContainerCreatePortMappingOptions {
 type Action = () => void | Promise<void>;
 
 interface ContainerOptions {
-    app: App;
-    variant: Variant;
-    version: Version;
+    appId: string;
+    variantId: string;
+    versionId: string;
     segments: number;
     runtime: string;
     runtimeImage: string;
@@ -176,8 +177,13 @@ export class Container {
 
     async getRuntimeImage(): Promise<string> {
         let runtimeImage = this.options.runtimeImage;
-        if (!this.options.version?.supported_runtime_images.includes(runtimeImage)) {
-            runtimeImage = this.options.version?.default_runtime_image || this.options.variant.default_runtime_image;
+        const variant = await getVariant(this.options.appId, this.options.variantId);
+        if (!variant) {
+            throw new Error(`tried to get runtime image but variant id '${this.options.variantId}' not found`);
+        }
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
+        if (!version?.supported_runtime_images.includes(runtimeImage)) {
+            runtimeImage = version?.default_runtime_image || variant.default_runtime_image;
         }
         const daemonConfig = await getDaemonConfig();
         return `${runtimeImage}:${daemonConfig.runtime_images_branch}`;
@@ -207,17 +213,43 @@ export class Container {
 
         // Remove old container to use new runtime image
         const containerId = this.getContainerId();
-        if (await doesDockerContainerExist(containerId)) {
-            await removeDockerContainer(containerId);
+        await removeDockerContainer(containerId);
+
+        const app = await getApp(this.options.appId);
+        const variant = await getVariant(this.options.appId, this.options.variantId);
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
+        const environmentVariables = {
+            ...app?.environment_variables,
+            ...variant?.environment_variables,
+            ...version?.environment_variables
         }
-        
+
+        const portMappings: ContainerCreatePortMappingOptions[] = [];
+        Object.entries(variant?.ports || {}).forEach(([key, value]) => {
+            portMappings.push({
+                container_port: +key,
+                host_port: +key
+            });
+        });
+
+        const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
-            environment_variables: {},
+            environment_variables: environmentVariables,
             image: fullImagePath,
             name: containerId,
-            bind_mounts: [],
-            port_mappings: [],
+            bind_mounts: [
+                {
+                    container_folder: "/ogsh/files",
+                    host_folder: containerFilesPath
+                },
+                {
+                    container_folder: "/ogsh/startup_files",
+                    host_folder: await getStartupFilesPath(this.options.appId, this.options.variantId),
+                    readonly: false
+                }
+            ],
+            port_mappings: portMappings,
             container_read_only: true
         });
         
@@ -244,6 +276,7 @@ export class Container {
                 let message = data.toString();
                 message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
                 this.pendingLogs.push(message);
+                console.log(message);
             });
         });
 
@@ -253,17 +286,16 @@ export class Container {
             const memoryMonitor = getMemoryMonitor(this.options.runtime);
             const networkMonitor = getNetworkMonitor(this.options.runtime);
             const containerInfo = await container.inspect();
+            const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
+            if (!totalNanoCpus) {
+                throw new Error(`could not inspect container '${this.getContainerId()}'`);
+            }
             while (running) {
                 await new Promise<void>(res => {
                     container.stats({
                         stream: false,
                         "one-shot": true
                     }).then(async rawStats => {
-                        const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
-                        if (!totalNanoCpus) {
-                            throw new Error(`could not inspect container '${this.getContainerId()}'`);
-                        }
-
                         this.mostRecentStats.sessionLength = sessionStart - Date.now();
                         this.mostRecentStats.online = true;
                         this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
@@ -307,8 +339,12 @@ export class Container {
         this.logger.info("Stopping");
         const daemonConfig = await getDaemonConfig();
         const container = await getDockerContainer(this.getContainerId());
-        if (this.options.variant.stop_command) {
-            await this.commandAction(this.options.variant.stop_command);
+        const variant = await getVariant(this.options.appId, this.options.variantId);
+        if (!variant) {
+            throw new Error(`tried to get stop_command but variant id '${this.options.variantId}' not found`);
+        }
+        if (variant.stop_command) {
+            await this.commandAction(variant.stop_command);
         } else {
             await container.stop({
                 // TODO might need to set signal?
@@ -354,8 +390,8 @@ export class Container {
 
     install(appId: string, variantId: string, versionId: string) {
         this.actionQueue = []; // Clear the action queue because other actions are in the context of the previous installation
-        this.actionQueue.push(async () => await this.installAction(appId, variantId, versionId));
-        this.actionQueue.push(this.startAction);
+        this.queueAction(async () => await this.installAction(appId, variantId, versionId));
+        this.queueAction(this.startAction);
     }
     
     private async installAction(appId: string, variantId: string, versionId: string) {
@@ -408,6 +444,8 @@ export class Container {
         await appInstallerContainer.start();
         this.monitorContainer(appInstallerContainer);
         await appInstallerContainer.wait();
+        
+        await removeDockerContainer(this.getContainerId());
     }
 
     async setConfig() {

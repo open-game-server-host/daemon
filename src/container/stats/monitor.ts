@@ -1,5 +1,7 @@
 import { CPUStats, MemoryStats, NetworkStats } from "dockerode";
 import fastFolderSize from "fast-folder-size";
+import { existsSync } from "node:fs";
+import { getGlobalConfig } from "../../config/globalConfig";
 import { Container } from "../container";
 import { ContainerCpu, ContainerMemory, ContainerNetwork, ContainerStorage } from "./containerStats";
 import { jvmMemoryMonitor as jvmContainerMemorymonitor } from "./runtimes/jvmMonitor";
@@ -61,6 +63,16 @@ export async function defaultContainerNetworkMonitor(container: Container, netwo
 }
 
 export async function defaultContainerStorageMonitor(container: Container, containerFilesPath: string): Promise<ContainerStorage> {
+    const globalConfig = await getGlobalConfig();
+    const total = (globalConfig.segment.storage_gb * container.getOptions().segments) * 1_000_000_000;
+
+    if (!existsSync(containerFilesPath)) {
+        return {
+            total,
+            used: 0
+        }
+    }
+
     return new Promise<ContainerStorage>((res, rej) => {
         fastFolderSize(containerFilesPath, (error, bytes) => {
             if (error) {
@@ -69,11 +81,11 @@ export async function defaultContainerStorageMonitor(container: Container, conta
                 return;
             }
             if (!bytes) {
-                rej(`folder size bytes is undefined (${containerFilesPath})`);
-                return;
+                // Folder was probably deleted due to reinstall
+                bytes = 0;
             }
             res({
-                total: 0, // TODO
+                total,
                 used: bytes
             });
         });

@@ -13,6 +13,7 @@ export interface App {
     variants: {
         [variantId: string]: Variant;
     }
+    environment_variables?: {[key: string]: any};
 }
 
 export interface Variant {
@@ -37,6 +38,7 @@ export interface Variant {
     versions: {
         [versionId: string]: Version;
     }
+    environment_variables?: {[key: string]: any};
 }
 
 export interface Version {
@@ -48,8 +50,9 @@ export interface Version {
     current_build_info: string;
     default_runtime_image?: string;
     supported_runtime_images: string[];
-    minimum_segments?: number;
-    recommended_segments?: number;
+    minimum_segments: number;
+    recommended_segments: number;
+    environment_variables?: {[key: string]: any};
 }
 
 class AppsConfig extends Config<Apps> {
@@ -68,6 +71,21 @@ const appsConfig = new AppsConfig();
 
 export async function getApps(): Promise<Apps> {
     return appsConfig.getConfig();
+}
+
+export async function getApp(appId: string): Promise<App | undefined> {
+    const apps = await getApps();
+    return apps[appId];
+}
+
+export async function getVariant(appId: string, variantId: string): Promise<Variant | undefined> {
+    const app = await getApp(appId);
+    return app?.variants[variantId];
+}
+
+export async function getVersion(appId: string, variantId: string, versionId: string): Promise<Version | undefined> {
+    const variant = await getVariant(appId, variantId);
+    return variant?.versions[versionId];
 }
 
 export async function getAppArchivePath(appId: string, variantId: string, versionId: string): Promise<string> {

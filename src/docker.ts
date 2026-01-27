@@ -125,11 +125,8 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 
 export async function removeDockerContainer(containerId: string) {
     const container = getContainer(containerId);
-	if (!doesDockerContainerExist(container)) {
-		return;
-	}
     await container.remove({
         force: true, // Kill container before removing it
         v: true // Remove anonymous volumes
-    });
+    }).catch(_ => {});
 }
