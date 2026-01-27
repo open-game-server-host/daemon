@@ -1,13 +1,15 @@
 import { CPUStats, MemoryStats, NetworkStats } from "dockerode";
 import fastFolderSize from "fast-folder-size";
+import { Container } from "../container";
 import { ContainerCpu, ContainerMemory, ContainerNetwork, ContainerStorage } from "./containerStats";
+import { jvmMemoryMonitor as jvmContainerMemorymonitor } from "./runtimes/jvmMonitor";
 
-export type ContainerCpuMonitor = (totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats) => Promise<ContainerCpu>;
-export type ContainerMemoryMonitor = (memory?: MemoryStats) => Promise<ContainerMemory>;
-export type ContainerNetworkMonitor = (networks?: NetworkStats) => Promise<ContainerNetwork>;
-export type ContainerStorageMonitor = (containerFilesPath: string) => Promise<ContainerStorage>;
+export type ContainerCpuMonitor = (container: Container, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats) => Promise<ContainerCpu>;
+export type ContainerMemoryMonitor = (container: Container, memory?: MemoryStats) => Promise<ContainerMemory>;
+export type ContainerNetworkMonitor = (container: Container, networks?: NetworkStats) => Promise<ContainerNetwork>;
+export type ContainerStorageMonitor = (container: Container, containerFilesPath: string) => Promise<ContainerStorage>;
 
-export async function defaultContainerCpuMonitor(totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats): Promise<ContainerCpu> {
+export async function defaultContainerCpuMonitor(container: Container, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats): Promise<ContainerCpu> {
     if (!currentCpu || !previousCpu) {
         return {
             total: 100,
@@ -23,7 +25,7 @@ export async function defaultContainerCpuMonitor(totalNanoCpus: number, currentC
     };
 }
 
-export async function defaultContainerMemoryMonitor(memory?: MemoryStats): Promise<ContainerMemory> {
+export async function defaultContainerMemoryMonitor(container: Container, memory?: MemoryStats): Promise<ContainerMemory> {
     if (!memory) {
         return {
             total: 0,
@@ -36,7 +38,7 @@ export async function defaultContainerMemoryMonitor(memory?: MemoryStats): Promi
     }
 }
 
-export async function defaultContainerNetworkMonitor(networks?: NetworkStats): Promise<ContainerNetwork> {
+export async function defaultContainerNetworkMonitor(container: Container, networks?: NetworkStats): Promise<ContainerNetwork> {
     if (!networks) {
         return {
             in: 0,
@@ -58,7 +60,7 @@ export async function defaultContainerNetworkMonitor(networks?: NetworkStats): P
     };
 }
 
-export async function defaultContainerStorageMonitor(containerFilesPath: string): Promise<ContainerStorage> {
+export async function defaultContainerStorageMonitor(container: Container, containerFilesPath: string): Promise<ContainerStorage> {
     return new Promise<ContainerStorage>((res, rej) => {
         fastFolderSize(containerFilesPath, (error, bytes) => {
             if (error) {
@@ -95,3 +97,5 @@ export function getNetworkMonitor(runtime: string): ContainerNetworkMonitor {
 export function getStorageMonitor(runtime: string): ContainerStorageMonitor {
     return storageMonitors.get(runtime) || defaultContainerStorageMonitor;
 }
+
+memoryMonitors.set("jvm", jvmContainerMemorymonitor);

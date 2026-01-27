@@ -2,6 +2,7 @@ import Docker from "dockerode";
 import { mkdirSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
+import { EventEmitter } from "stream";
 import { App, getAppArchivePath, getApps, Variant, Version } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
@@ -11,6 +12,8 @@ import { Logger } from "../logger";
 import { sleep } from "../utils";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
+
+export const containerEventEmitter = new EventEmitter();
 
 const containersById = new Map<string, Container>();
 
@@ -122,7 +125,7 @@ export class Container {
             const storageMonitor = getStorageMonitor(this.options.runtime);
             while (!this.terminated) {
                 this.mostRecentStats.timestamp = Date.now();
-                this.mostRecentStats.storage = await storageMonitor(containerFilesPath); // Storage needs to be tracked even when the container is offline because people can upload/download files
+                this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath); // Storage needs to be tracked even when the container is offline because people can upload/download files
                 const events = {
                     logs: this.pendingLogs,
                     stats: this.mostRecentStats
@@ -149,6 +152,10 @@ export class Container {
 
     getContainerId(): string {
         return `C_${this.id}`;
+    }
+
+    getOptions(): ContainerOptions {
+        return this.options;
     }
 
     async getContainerFilesPath(): Promise<string> {
@@ -219,6 +226,7 @@ export class Container {
         await container.start();
         this.logger.info("Started");
 
+        containerEventEmitter.emit("start", this);
         this.monitorContainer(container);
     }
 
@@ -258,9 +266,9 @@ export class Container {
 
                         this.mostRecentStats.sessionLength = sessionStart - Date.now();
                         this.mostRecentStats.online = true;
-                        this.mostRecentStats.cpu = await cpuMonitor(totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
-                        this.mostRecentStats.memory = await memoryMonitor(rawStats.memory_stats);
-                        this.mostRecentStats.network = await networkMonitor(rawStats.networks);
+                        this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
+                        this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats);
+                        this.mostRecentStats.network = await networkMonitor(this, rawStats.networks);
                         res();
                     });
                 });
@@ -288,6 +296,7 @@ export class Container {
         this.logger.info("Stopped", {
             reason
         });
+        containerEventEmitter.emit("stop", this);
     }
 
     stop() {
