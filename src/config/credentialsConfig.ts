@@ -8,16 +8,16 @@ interface Credentials {
 const credentialsPath = "credentials.json";
 
 if (!existsSync(credentialsPath)) {
-    throw new Error(`credentials file missing! (${credentialsPath})`);
+    throw new Error(`Credentials file missing! (${credentialsPath})`);
 }
 
 const credentials = JSON.parse(readFileSync(credentialsPath).toString());
 
 if (!credentials.github_packages_read_username) {
-    throw new Error("missing github_packages_read_username from credentials file");
+    throw new Error("Missing github_packages_read_username from credentials file");
 }
 if (!credentials.github_packages_read_token) {
-    throw new Error("missing github_packages_read_token from credentials file");
+    throw new Error("Missing github_packages_read_token from credentials file");
 }
 
 export function getCredentials(): Credentials {

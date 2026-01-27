@@ -1,6 +1,7 @@
 import Docker from "dockerode";
 import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
+import { OGSHError } from "./error";
 import { Logger } from "./logger";
 import { getMb } from "./utils";
 
@@ -25,7 +26,7 @@ function getContainer(container: string | Docker.Container) {
 export async function getDockerContainer(containerId: string): Promise<Docker.Container> {
     const container = getContainer(containerId);
     if (!await doesDockerContainerExist(container)) {
-        throw new Error(`TODO container id '${containerId}' not found`);
+		throw new OGSHError("container/not-found", `id '${containerId}'`);
     }
     return container;
 }
@@ -52,8 +53,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 		}).then(stream => {
 			docker.modem.followProgress(stream, error => {
 				if (error) {
-					// TODO
-					throw error;
+					throw new OGSHError("container/image-pull-failed", error);
 				}
 				logger.info("Finished pulling Docker image", {
 					image: fullImageName
@@ -61,8 +61,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 				res();
 			}, () => {});
 		}).catch(error => {
-			console.log(error);
-			rej(error);
+			rej(new OGSHError("container/image-pull-failed", error));
 		});
 	});
 }
@@ -118,8 +117,7 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 		}
 
 		return await docker.createContainer(dockerCreateOptions).catch(error => {
-            // TODO
-            throw error;
+			throw new OGSHError("container/create-failed", error);
 		});
 }
 

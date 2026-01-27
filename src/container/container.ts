@@ -3,12 +3,13 @@ import { mkdirSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
 import { EventEmitter } from "stream";
-import { getApp, getAppArchivePath, getApps, getVariant, getVersion } from "../config/appsConfig";
+import { getApp, getAppArchivePath, getVariant, getVersion } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { constants } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
+import { OGSHError } from "../error";
 import { Logger } from "../logger";
 import { sleep } from "../utils";
 import { ContainerStats } from "./stats/containerStats";
@@ -22,8 +23,12 @@ export function registerContainer(container: Container) {
     containersById.set(container.getId(), container);
 }
 
-export function getContainer(id: string): Container | undefined {
-    return containersById.get(id);
+export function getContainer(id: string): Container {
+    const container = containersById.get(id);
+    if (!container) {
+        throw new OGSHError("container/not-found", `container id '${id}' not registered`);
+    }
+    return container;
 }
 
 export interface ContainerCreateOptions {
@@ -149,7 +154,7 @@ export class Container {
 
     private queueAction(action: Action) {
         if (this.terminated) {
-            throw new Error(`TODO could not queue action for container id '${this.id}' because it is terminated`);
+            throw new OGSHError("container/terminated", `could not queue action for container id '${this.id}'`);
         }
         this.actionQueue.push(action.bind(this));
     }
@@ -186,7 +191,7 @@ export class Container {
         let runtimeImage = this.options.runtimeImage;
         const variant = await getVariant(this.options.appId, this.options.variantId);
         if (!variant) {
-            throw new Error(`tried to get runtime image but variant id '${this.options.variantId}' not found`);
+            throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
         }
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         if (!version?.supported_runtime_images.includes(runtimeImage)) {
@@ -296,10 +301,12 @@ export class Container {
             const cpuMonitor = getCpuMonitor(this.options.runtime);
             const memoryMonitor = getMemoryMonitor(this.options.runtime);
             const networkMonitor = getNetworkMonitor(this.options.runtime);
-            const containerInfo = await container.inspect();
+            const containerInfo = await container.inspect().catch(error => {
+                throw new OGSHError("container/not-found", error);
+            });
             const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
             if (!totalNanoCpus) {
-                throw new Error(`could not inspect container '${this.getContainerId()}'`);
+                throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.getContainerId()}'`)
             }
             while (running) {
                 await new Promise<void>(res => {
@@ -315,7 +322,7 @@ export class Container {
                         res();
                     });
                 });
-                // TODO sleep
+                // TODO sleep?
             }
         })();
 
@@ -355,7 +362,7 @@ export class Container {
         const container = await getDockerContainer(this.getContainerId());
         const variant = await getVariant(this.options.appId, this.options.variantId);
         if (!variant) {
-            throw new Error(`tried to get stop_command but variant id '${this.options.variantId}' not found`);
+            throw new OGSHError("app/variant-not-found", `failed to get stop command for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
         }
         if (variant.stop_command) {
             this.commandAction(variant.stop_command);
@@ -394,7 +401,7 @@ export class Container {
         this.logger.info("Executing command");
         const container = await getDockerContainer(this.getContainerId());
         if (!await isDockerContainerRunning(container)) {
-            throw new Error(`TODO tried to execute command for container id '${this.getContainerId()}' but it was offline`);
+            throw new OGSHError("container/offline", `could not execute command for offline container id '${this.getContainerId()}'`);
         }
         const stream = await container.attach({
             hijack: true,
@@ -403,7 +410,7 @@ export class Container {
         });
         stream.write(`${command}\n`, error => {
             if (error) {
-                throw error;
+                throw new OGSHError("container/command-failed", error);
             }
         });
     }
@@ -417,15 +424,8 @@ export class Container {
     private async installAction(appId: string, variantId: string, versionId: string) {
         this.logger.info("Installing");
 
-        const apps = await getApps();
-        if (!apps[appId]) {
-            throw new Error(`app ID '${appId}' not found`);
-        }
-        if (!apps[appId].variants[variantId]) {
-            throw new Error(`app ID '${appId}' variant ID '${variantId}' not found`);
-        }
-        if (!apps[appId].variants[variantId].versions[versionId]) {
-            throw new Error(`app ID '${appId}' variant ID '${variantId}' version ID '${versionId}' not found`);
+        if (!await getVersion(appId, variantId, versionId)) {
+            throw new OGSHError("app/version-not-found", `failed to install container id '${this.id}' with app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
         }
 
         await removeDockerContainer(this.getContainerId());

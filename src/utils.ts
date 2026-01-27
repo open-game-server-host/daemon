@@ -1,9 +1,9 @@
 export async function sleep(ms: number) {
     if (!Number.isInteger(ms)) {
-        // TODO throw error
+        ms = Math.floor(ms);
     }
     if (ms <= 0) {
-        // TODO throw error
+        ms = 0;
     }
     await new Promise<void>(res => setTimeout(res, ms));
 }
