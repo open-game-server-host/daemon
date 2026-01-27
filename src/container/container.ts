@@ -348,6 +348,9 @@ export class Container {
     
     private async stopAction() {
         this.logger.info("Stopping");
+        if (!await this.isRunning()) {
+            return;
+        }
         const daemonConfig = await getDaemonConfig();
         const container = await getDockerContainer(this.getContainerId());
         const variant = await getVariant(this.options.appId, this.options.variantId);
@@ -355,19 +358,22 @@ export class Container {
             throw new Error(`tried to get stop_command but variant id '${this.options.variantId}' not found`);
         }
         if (variant.stop_command) {
-            await this.commandAction(variant.stop_command);
+            this.commandAction(variant.stop_command);
         } else {
-            await container.stop({
+            container.stop({
                 // TODO might need to set signal?
                 t: daemonConfig.stop_seconds_timeout
             });
         }
+        await new Promise<void>(res => {
+            containerEventEmitter.on("stop", res);
+        });
     }
 
     restart() {
         this.logger.info("Restarting");
-        this.queueAction(this.startAction);
         this.queueAction(this.stopAction);
+        this.queueAction(this.startAction);
     }
 
     kill() {
