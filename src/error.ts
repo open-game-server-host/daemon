@@ -24,8 +24,8 @@ export class OGSHError extends Error {
     constructor(readonly ogshError: Errors, readonly info?: string | Error) {
         super(`${info}`);
     }
+}
 
-    getHttpStatus(): number {
-        return httpErrors.get(this.ogshError) || HTTPStatus.SERVER_ERROR;
-    }
+export function getErrorHttpStatus(error: Errors): number {
+    return httpErrors.get(error) || HTTPStatus.SERVER_ERROR;
 }

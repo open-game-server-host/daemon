@@ -1,6 +1,7 @@
 import express, { NextFunction, Request, Response } from "express";
 import { param } from "express-validator";
 import { getDaemonConfig } from "../config/daemonConfig";
+import { getErrorHttpStatus, OGSHError } from "../error";
 import { containerAuthMiddleware } from "./auth/containerAuth";
 import { internalAuthMiddleware } from "./auth/internalAuth";
 import { userAuthMiddleware } from "./auth/userAuth";
@@ -16,8 +17,16 @@ export async function initHttpServer() {
     app.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
     app.use("/v1/container/:containerId", param("containerId").isString(), userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
 
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-        // TODO
+    app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+        const responseBody: any = {};
+        if (error instanceof OGSHError) {
+            responseBody.error = (error as OGSHError).ogshError;
+        } else {
+            responseBody.error = "general/unspecified";
+        }
+        responseBody.info = error.message; // TODO only display this in dev environments
+        res.status(getErrorHttpStatus(responseBody.error));
+        res.send(responseBody);
     });
 
     app.listen(daemonConfig.port, () => console.log(`Started express on port ${daemonConfig.port}`));
