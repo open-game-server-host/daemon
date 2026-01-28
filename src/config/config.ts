@@ -16,7 +16,7 @@ export abstract class Config<T> {
     ) {
         this.fullUrl = `${this.githubOrgUrl}/${this.repo}/refs/heads/${this.branch}/${this.filePath}`;
 
-        this.logger = new Logger(`${name} config`);
+        this.logger = new Logger(`CONFIG: ${name}`);
         this.logger.set("name", name);
         this.logger.set("githubOrgUrl", githubOrgUrl);
         this.logger.set("repo", repo);
@@ -32,7 +32,7 @@ export abstract class Config<T> {
         this.config = await response.json();
         this.callbacks.forEach(cb => cb());
         this.callbacks = [];
-        this.logger.info(`Updated config`);
+        this.logger.info("Updated");
     }
 
     async getConfig(): Promise<T> {

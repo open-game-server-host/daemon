@@ -1,23 +1,23 @@
+import childProcess from "child_process";
 import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { getAppsBranch } from "../env";
+import { OGSHError } from "../error";
 import { Logger } from "../logger";
 import { getDaemonConfig } from "./daemonConfig";
-import childProcess from "child_process";
 
-const logger = new Logger("Startup Files");
+const logger = new Logger("Config: startup files");
 
 let callbacks: (() => void)[] = [];
 let filesDownloaded = false;
 
 export async function updateStartupFiles() {
-    logger.info("Updating");
     // TODO downloading raw blobs from github has a different url to text files so we can't use github_user_content_url defined in constants; for now this is hard coded
     const url = `https://github.com/open-game-server-host/apps/raw/refs/heads/${getAppsBranch()}/output/startup_files.tar`;
     const response = await fetch(url);
     if (!response.body) {
-        throw new Error("Failed");
+        throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
     rmSync(daemonConfig.startup_files_path, { recursive: true, force: true });
@@ -55,7 +55,7 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     const daemonConfig = await getDaemonConfig();
 
     if (!existsSync(daemonConfig.startup_files_path)) {
-        throw new Error(`startup files path not found! (${daemonConfig.startup_files_path})`);
+        throw new OGSHError("app/startup-files-not-found", `path: '${daemonConfig.startup_files_path}'`);
     }
 
     let startupFilesPath = `${daemonConfig.startup_files_path}/${appId}/${variantId}`;
@@ -68,5 +68,5 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
         return path.resolve(startupFilesPath);
     }
 
-    throw new Error(`no startup files found for appId '${appId}' variantId '${variantId}'`);
+    throw new OGSHError("app/startup-files-not-found", `appId '${appId}' variantId '${variantId}'`);
 }
