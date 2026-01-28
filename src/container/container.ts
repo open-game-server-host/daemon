@@ -260,8 +260,7 @@ export class Container {
                     readonly: false
                 }
             ],
-            port_mappings: portMappings,
-            container_read_only: true
+            port_mappings: portMappings
         });
         
         // TODO sanitise configs
@@ -307,7 +306,7 @@ export class Container {
                         stream: false,
                         "one-shot": true
                     }).then(async rawStats => {
-                        this.mostRecentStats.sessionLength = sessionStart - Date.now();
+                        this.mostRecentStats.sessionLength = Date.now() - sessionStart;
                         this.mostRecentStats.online = true;
                         this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
                         this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats);
