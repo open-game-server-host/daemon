@@ -307,22 +307,22 @@ export class Container {
             if (!totalNanoCpus) {
                 throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.id}'`)
             }
-            while (running) {
-                await new Promise<void>(res => {
-                    container.stats({
-                        stream: false,
-                        "one-shot": true
-                    }).then(async rawStats => {
-                        this.mostRecentStats.sessionLength = Date.now() - sessionStart;
-                        this.mostRecentStats.online = true;
-                        this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
-                        this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats);
-                        this.mostRecentStats.network = await networkMonitor(this, rawStats.networks);
-                        res();
-                    });
+            container.stats({
+                stream: true
+            }).then(async stream => {
+                stream.on("data", async (data: Buffer) => {
+                    if (!running) {
+                        stream.removeAllListeners();
+                        return;
+                    }
+                    const rawStats = JSON.parse(data.toString());
+                    this.mostRecentStats.sessionLength = Date.now() - sessionStart;
+                    this.mostRecentStats.online = true;
+                    this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
+                    this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats);
+                    this.mostRecentStats.network = await networkMonitor(this, rawStats.networks);
                 });
-                // TODO sleep?
-            }
+            });
         })();
 
         const output = await container.wait();

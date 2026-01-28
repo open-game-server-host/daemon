@@ -23,7 +23,7 @@ export async function defaultContainerCpuMonitor(container: Container, totalNano
     return {
         total: 100,
         // Cap at 100 because sometimes the reported usage goes above 100%
-        used: Math.min(100, Math.round(100 / totalNanoCpus * cpuNanosUsage))
+        used: Math.min(100, 100 / totalNanoCpus * cpuNanosUsage)
     };
 }
 
