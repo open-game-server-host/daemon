@@ -12,6 +12,11 @@ export type Errors =
     | "container/invalid"
     | "container/offline"
     | "container/command-failed"
+    | "container/cpu-monitor-failed"
+    | "container/memory-monitor-failed"
+    | "container/network-monitor-failed"
+    | "container/storage-monitor-failed"
+    | "container/pid-not-found"
 
     | "app/not-found"
     | "app/variant-not-found"

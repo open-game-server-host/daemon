@@ -2,16 +2,16 @@ import { CPUStats, MemoryStats, NetworkStats } from "dockerode";
 import fastFolderSize from "fast-folder-size";
 import { existsSync } from "node:fs";
 import { getGlobalConfig } from "../../config/globalConfig";
-import { Container } from "../container";
+import { ContainerWrapper } from "../container";
 import { ContainerCpu, ContainerMemory, ContainerNetwork, ContainerStorage } from "./containerStats";
 import { jvmMemoryMonitor as jvmContainerMemorymonitor } from "./runtimes/jvmMonitor";
 
-export type ContainerCpuMonitor = (container: Container, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats) => Promise<ContainerCpu>;
-export type ContainerMemoryMonitor = (container: Container, memory?: MemoryStats) => Promise<ContainerMemory>;
-export type ContainerNetworkMonitor = (container: Container, networks?: NetworkStats) => Promise<ContainerNetwork>;
-export type ContainerStorageMonitor = (container: Container, containerFilesPath: string) => Promise<ContainerStorage>;
+export type ContainerCpuMonitor = (container: ContainerWrapper, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats) => Promise<ContainerCpu>;
+export type ContainerMemoryMonitor = (container: ContainerWrapper, memory?: MemoryStats) => Promise<ContainerMemory>;
+export type ContainerNetworkMonitor = (container: ContainerWrapper, networks?: NetworkStats) => Promise<ContainerNetwork>;
+export type ContainerStorageMonitor = (container: ContainerWrapper, containerFilesPath: string) => Promise<ContainerStorage>;
 
-export async function defaultContainerCpuMonitor(container: Container, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats): Promise<ContainerCpu> {
+export async function defaultContainerCpuMonitor(container: ContainerWrapper, totalNanoCpus: number, currentCpu?: CPUStats, previousCpu?: CPUStats): Promise<ContainerCpu> {
     if (!currentCpu || !previousCpu) {
         return {
             total: 100,
@@ -27,7 +27,7 @@ export async function defaultContainerCpuMonitor(container: Container, totalNano
     };
 }
 
-export async function defaultContainerMemoryMonitor(container: Container, memory?: MemoryStats): Promise<ContainerMemory> {
+export async function defaultContainerMemoryMonitor(container: ContainerWrapper, memory?: MemoryStats): Promise<ContainerMemory> {
     if (!memory) {
         return {
             total: 0,
@@ -40,7 +40,7 @@ export async function defaultContainerMemoryMonitor(container: Container, memory
     }
 }
 
-export async function defaultContainerNetworkMonitor(container: Container, networks?: NetworkStats): Promise<ContainerNetwork> {
+export async function defaultContainerNetworkMonitor(container: ContainerWrapper, networks?: NetworkStats): Promise<ContainerNetwork> {
     if (!networks) {
         return {
             in: 0,
@@ -62,7 +62,7 @@ export async function defaultContainerNetworkMonitor(container: Container, netwo
     };
 }
 
-export async function defaultContainerStorageMonitor(container: Container, containerFilesPath: string): Promise<ContainerStorage> {
+export async function defaultContainerStorageMonitor(container: ContainerWrapper, containerFilesPath: string): Promise<ContainerStorage> {
     const globalConfig = await getGlobalConfig();
     const total = (globalConfig.segment.storage_gb * container.getOptions().segments) * 1_000_000_000;
 

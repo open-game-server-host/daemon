@@ -1,8 +1,11 @@
+import EventEmitter from "events";
+export const containerEventEmitter = new EventEmitter();
+
 import Docker from "dockerode";
 import { mkdirSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
-import { EventEmitter } from "stream";
+import Stream from "stream";
 import { getApp, getAppArchivePath, getVariant, getVersion } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
@@ -15,15 +18,13 @@ import { sleep } from "../utils";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
 
-export const containerEventEmitter = new EventEmitter();
+const containersById = new Map<string, ContainerWrapper>();
 
-const containersById = new Map<string, Container>();
-
-export function registerContainer(container: Container) {
+export function registerContainer(container: ContainerWrapper) {
     containersById.set(container.getId(), container);
 }
 
-export function getContainer(id: string): Container {
+export function getContainer(id: string): ContainerWrapper {
     const container = containersById.get(id);
     if (!container) {
         throw new OGSHError("container/not-found", `container id '${id}' not registered`);
@@ -79,7 +80,7 @@ const stopReasons: {[code: number]: string} = {
 
 const maxCpus = os.cpus().length;
 
-export class Container {
+export class ContainerWrapper {
     private readonly logger;
 
     private actionQueue: Action[] = [];
@@ -205,6 +206,47 @@ export class Container {
         return isDockerContainerRunning(this.getContainerId());
     }
 
+    async getContainerPid(): Promise<number> {
+        const container = await getDockerContainer(this.getContainerId());
+
+        await sleep(250); // Just in case ps is run before app starts
+
+        return await new Promise<number>(async res => {
+            container.exec({
+                AttachStdin: true,
+                AttachStdout: true,
+                Cmd: ["ps", "-o", "pid="]
+            }, async (error, exec) => {
+                if (error) {
+                    throw new OGSHError("container/pid-not-found", error);
+                }
+
+                if (!exec) {
+                    throw new OGSHError("container/pid-not-found", "container exec is undefined");
+                }
+
+                const duplex = await exec.start({
+                    stdin: true,
+                    hijack: true
+                });
+                const stream = new Stream.PassThrough();
+                container.modem.demuxStream(duplex, stream, process.stderr);
+
+                stream.on("data", chunk => {
+                    const data = `${chunk}`;
+
+                    try {
+                        res(+data.split("\n")[1]);
+                    } catch (error) {
+                        throw new OGSHError("container/pid-not-found", error as Error);
+                    }
+                });
+            });
+        }).catch(error => {
+            throw new OGSHError("container/pid-not-found", error);
+        });
+    }
+
     start() {
         this.queueAction(this.startAction);
     }
@@ -291,7 +333,7 @@ export class Container {
                 let message = data.toString();
                 message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
                 this.pendingLogs.push(message);
-                console.log(message);
+                // console.log(message);
             });
         });
 

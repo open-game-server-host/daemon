@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { Container, getContainer } from "../../container/container";
+import { ContainerWrapper, getContainer } from "../../container/container";
 
 export interface ContainerAuthLocals {
-    container: Container;
+    container: ContainerWrapper;
 }
 
 export async function containerAuthMiddleware(req: Request, res: Response, next: NextFunction) {
