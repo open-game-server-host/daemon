@@ -4,7 +4,7 @@ logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
 import { getDaemonConfig } from "./config/daemonConfig";
-import { ContainerWrapper, registerContainer } from "./container/container";
+import { ContainerWrapper, registerContainerWrapper } from "./container/container";
 import { initHttpServer } from "./http/httpServer";
 
 async function init() {
@@ -21,7 +21,7 @@ async function init() {
     // TODO make sure all app archives are up to date and download those that aren't
 
     // TODO temporary for testing a container
-    registerContainer(new ContainerWrapper("aContainerId", {
+    registerContainerWrapper(new ContainerWrapper("aContainerId", {
         appId: "minecraft_java_edition",
         variantId: "vanilla",
         versionId: "1.21.11",

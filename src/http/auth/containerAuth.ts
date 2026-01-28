@@ -1,12 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import { ContainerWrapper, getContainer } from "../../container/container";
+import { ContainerWrapper, getContainerWrapper } from "../../container/container";
 
 export interface ContainerAuthLocals {
-    container: ContainerWrapper;
+    wrapper: ContainerWrapper;
 }
 
 export async function containerAuthMiddleware(req: Request, res: Response, next: NextFunction) {
-    res.locals.container = getContainer(req.params.containerId as string);
+    res.locals.wrapper = getContainerWrapper(req.params.containerId as string);
 
     // TODO validate user has access to this container
     next();

@@ -18,18 +18,18 @@ import { sleep } from "../utils";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
 
-const containersById = new Map<string, ContainerWrapper>();
+const containerWrappersById = new Map<string, ContainerWrapper>();
 
-export function registerContainer(container: ContainerWrapper) {
-    containersById.set(container.getId(), container);
+export function registerContainerWrapper(wrapper: ContainerWrapper) {
+    containerWrappersById.set(wrapper.getId(), wrapper);
 }
 
-export function getContainer(id: string): ContainerWrapper {
-    const container = containersById.get(id);
-    if (!container) {
+export function getContainerWrapper(id: string): ContainerWrapper {
+    const wrapper = containerWrappersById.get(id);
+    if (!wrapper) {
         throw new OGSHError("container/not-found", `container id '${id}' not registered`);
     }
-    return container;
+    return wrapper;
 }
 
 export interface ContainerCreateOptions {
