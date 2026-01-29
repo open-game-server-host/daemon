@@ -33,7 +33,7 @@ wsServer.on("connection", async (ws, req) => {
         const { authToken, containerId } = query.parse(req.url.substring(startIndex));
         if (typeof containerId !== "string") throw new OGSHError("ws/invalid-params", `'containerId' should be a string`);
         // TODO validate containerId length
-        const wrapper = getContainerWrapper(containerId as string);
+        wrapper = getContainerWrapper(containerId as string);
         if (!wrapper) throw new OGSHError("ws/invalid-params", `container id '${containerId}' not registered`);
 
         if (typeof authToken !== "string") throw new OGSHError("ws/invalid-params", `'authToken' should be a string`);
