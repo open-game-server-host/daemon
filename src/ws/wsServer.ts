@@ -1,7 +1,7 @@
+import { formatErrorResponseBody, OGSHError } from "@open-game-server-host/backend-lib";
 import query from "querystring";
 import { WebSocket, WebSocketServer } from "ws";
 import { ContainerWrapper, getContainerWrapper } from "../container/container";
-import { formatErrorResponseBody, OGSHError } from "../error";
 
 export const wsServer = new WebSocketServer({ noServer: true });
 

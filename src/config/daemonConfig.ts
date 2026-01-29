@@ -1,6 +1,6 @@
+import { Config } from "@open-game-server-host/backend-lib";
 import { constants } from "../constants";
-import { getAppDaemonConfigBranch } from "../env";
-import { Config } from "./config";
+import { getDaemonConfigBranch } from "../env";
 
 interface Daemon {
     port: number; // default 8080
@@ -22,7 +22,7 @@ class DaemonConfig extends Config<Daemon> {
             "Daemon",
             constants.github_user_content_url,
             "configs",
-            getAppDaemonConfigBranch(),
+            getDaemonConfigBranch(),
             "daemon.json"
         );
     }
@@ -32,4 +32,9 @@ const daemonConfig = new DaemonConfig();
 
 export async function getDaemonConfig(): Promise<Daemon> {
     return daemonConfig.getConfig();
+}
+
+export async function getAppArchivePath(appId: string, variantId: string, versionId: string): Promise<string> {
+    const daemonConfig = await getDaemonConfig();
+    return `${daemonConfig.app_archives_path}/${appId}-${variantId}-${versionId}.7z`;
 }

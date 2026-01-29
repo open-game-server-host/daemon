@@ -1,7 +1,7 @@
+import { getGlobalConfig } from "@open-game-server-host/backend-lib";
 import Docker, { MemoryStats } from "dockerode";
 import Stream from "stream";
 import { getDaemonConfig } from "../../../config/daemonConfig";
-import { getGlobalConfig } from "../../../config/globalConfig";
 import { getDockerContainer } from "../../../docker";
 import { containerEventEmitter, ContainerWrapper } from "../../container";
 import { ContainerMemory } from "../containerStats";

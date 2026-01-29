@@ -1,7 +1,7 @@
+import { getGlobalConfig } from "@open-game-server-host/backend-lib";
 import { CPUStats, MemoryStats, NetworkStats } from "dockerode";
 import fastFolderSize from "fast-folder-size";
 import { existsSync } from "node:fs";
-import { getGlobalConfig } from "../../config/globalConfig";
 import { ContainerWrapper } from "../container";
 import { ContainerCpu, ContainerMemory, ContainerNetwork, ContainerStorage } from "./containerStats";
 import { jvmMemoryMonitor as jvmContainerMemorymonitor } from "./runtimes/jvmMonitor";

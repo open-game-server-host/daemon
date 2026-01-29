@@ -1,9 +1,8 @@
-import express, { NextFunction, Request, Response } from "express";
+import { expressErrorHandler, Logger } from "@open-game-server-host/backend-lib";
+import express from "express";
 import { param } from "express-validator";
 import { createServer } from "node:http";
 import { getDaemonConfig } from "../config/daemonConfig";
-import { formatErrorResponseBody, getErrorHttpStatus, OGSHError } from "../error";
-import { Logger } from "../logger";
 import { wsServer } from "../ws/wsServer";
 import { containerAuthMiddleware } from "./auth/containerAuth";
 import { internalAuthMiddleware } from "./auth/internalAuth";
@@ -20,15 +19,7 @@ export async function initHttpServer(logger: Logger) {
     router.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
     router.use("/v1/container/:containerId", param("containerId").isString(), userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
 
-    router.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-        if ((req.method !== "GET" && req.method !== "DELETE") && req.header("content-type") !== "application/json") {
-            error = new OGSHError("http/invalid-headers", `missing 'content-type: application/json' header`);
-        }
-
-        const responseBody = formatErrorResponseBody(error);
-        res.status(getErrorHttpStatus(responseBody.error));
-        res.send(responseBody);
-    });
+    router.use(expressErrorHandler);
 
     const httpServer = createServer(router);
     httpServer.on("upgrade", async (req, socket, head) => {

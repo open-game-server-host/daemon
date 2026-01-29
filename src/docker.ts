@@ -1,9 +1,7 @@
+import { getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
-import { OGSHError } from "./error";
-import { Logger } from "./logger";
-import { getMb } from "./utils";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock" // TODO this may need to change if the daemon runs in a container

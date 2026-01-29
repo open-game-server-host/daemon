@@ -1,6 +1,6 @@
+import { OGSHError } from "@open-game-server-host/backend-lib";
 import { NextFunction, Request, Response } from "express";
 import { ContainerWrapper, getContainerWrapper } from "../../container/container";
-import { OGSHError } from "../../error";
 
 export interface ContainerAuthLocals {
     wrapper: ContainerWrapper;
