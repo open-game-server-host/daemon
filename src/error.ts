@@ -17,11 +17,19 @@ export type Errors =
     | "container/network-monitor-failed"
     | "container/storage-monitor-failed"
     | "container/pid-not-found"
+    | "container/unauthorized"
 
     | "app/not-found"
     | "app/variant-not-found"
     | "app/version-not-found"
     | "app/startup-files-not-found"
+
+    | "ws/invalid-params"
+    | "ws/connection-limit"
+
+    | "http/invalid-headers"
+
+    | "auth/invalid"
 ;
 
 const httpErrors = new Map<Errors, number>();
@@ -35,4 +43,15 @@ export class OGSHError extends Error {
 
 export function getErrorHttpStatus(error: Errors): number {
     return httpErrors.get(error) || HTTPStatus.SERVER_ERROR;
+}
+
+interface ErrorResponseBody {
+    error: Errors;
+    info?: string;
+}
+export function formatErrorResponseBody(error: Error | OGSHError): ErrorResponseBody {
+    return {
+        error: error instanceof OGSHError ? (error as OGSHError).ogshError : "general/unspecified",
+        info: error.message // TODO only return this in a dev environment
+    }
 }

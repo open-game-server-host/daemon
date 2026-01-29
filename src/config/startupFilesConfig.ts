@@ -7,7 +7,7 @@ import { OGSHError } from "../error";
 import { Logger } from "../logger";
 import { getDaemonConfig } from "./daemonConfig";
 
-const logger = new Logger("Config: startup files");
+const logger = new Logger("CONFIG: startup files");
 
 let callbacks: (() => void)[] = [];
 let filesDownloaded = false;

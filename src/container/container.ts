@@ -6,6 +6,7 @@ import { mkdirSync, rmSync } from "fs";
 import os from "os";
 import path from "path";
 import Stream from "stream";
+import { WebSocket } from "ws";
 import { getApp, getAppArchivePath, getVariant, getVersion } from "../config/appsConfig";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getGlobalConfig } from "../config/globalConfig";
@@ -24,12 +25,8 @@ export function registerContainerWrapper(wrapper: ContainerWrapper) {
     containerWrappersById.set(wrapper.getId(), wrapper);
 }
 
-export function getContainerWrapper(id: string): ContainerWrapper {
-    const wrapper = containerWrappersById.get(id);
-    if (!wrapper) {
-        throw new OGSHError("container/not-found", `container id '${id}' not registered`);
-    }
-    return wrapper;
+export function getContainerWrapper(id: string): ContainerWrapper | undefined {
+    return containerWrappersById.get(id);
 }
 
 export interface ContainerCreateOptions {
@@ -82,6 +79,7 @@ const maxCpus = os.cpus().length;
 
 export class ContainerWrapper {
     private readonly logger;
+    private readonly connectedWebsockets = new Map<WebSocket, string>();
 
     private actionQueue: Action[] = [];
     private terminated = false;
@@ -146,7 +144,13 @@ export class ContainerWrapper {
                 }
                 this.pendingLogs = [];
 
-                // TODO push events to connected websockets asynchronously
+                // Send websocket messages in an async function so this loop is more in sync with websocket_event_push_frequency_ms
+                (async () => {
+                    const jsonString = JSON.stringify(events);
+                    for (const ws of this.connectedWebsockets.keys()) {
+                        ws.send(jsonString);
+                    }
+                })();
 
                 await sleep(daemonConfig.websocket_event_push_frequency_ms);
             }
@@ -510,15 +514,33 @@ export class ContainerWrapper {
     }
 
     async setConfig() {
-
+        // TODO
     }
 
     async getConfigs() {
-
+        // TODO
     }
 
     terminate() {
         this.logger.info("Terminating");
         this.terminated = true;
+    }
+
+    async registerWebsocket(ws: WebSocket, userId: string) {
+        const daemonConfig = await getDaemonConfig();
+        let connections = 0;
+        for (const id of this.connectedWebsockets.values()) {
+            if (id === userId) {
+                connections++;
+                if (connections >= daemonConfig.max_websocket_connections_per_container_per_user) {
+                    throw new OGSHError("ws/connection-limit", `user id '${userId}' has reached max connections to container id '${this.id}' (limit ${daemonConfig.max_websocket_connections_per_container_per_user})`);
+                }
+            }
+        }
+        this.connectedWebsockets.set(ws, userId);
+    }
+
+    unregisterWebsocket(ws: WebSocket) {
+        this.connectedWebsockets.delete(ws);
     }
 }

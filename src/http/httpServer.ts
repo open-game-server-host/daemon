@@ -1,8 +1,10 @@
 import express, { NextFunction, Request, Response } from "express";
 import { param } from "express-validator";
+import { createServer } from "node:http";
 import { getDaemonConfig } from "../config/daemonConfig";
-import { getErrorHttpStatus, OGSHError } from "../error";
+import { formatErrorResponseBody, getErrorHttpStatus, OGSHError } from "../error";
 import { Logger } from "../logger";
+import { wsServer } from "../ws/wsServer";
 import { containerAuthMiddleware } from "./auth/containerAuth";
 import { internalAuthMiddleware } from "./auth/internalAuth";
 import { userAuthMiddleware } from "./auth/userAuth";
@@ -12,27 +14,32 @@ import { internalHttpRouter } from "./routes/internalHttpRoutes";
 export async function initHttpServer(logger: Logger) {
     const daemonConfig = await getDaemonConfig();
 
-    const app = express();
-    app.use(express.json());
+    const router = express();
+    router.use(express.json());
 
-    app.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
-    app.use("/v1/container/:containerId", param("containerId").isString(), userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
+    router.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
+    router.use("/v1/container/:containerId", param("containerId").isString(), userAuthMiddleware, containerAuthMiddleware, containerHttpRouter);
 
-    app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
-        const responseBody: any = {};
-        if (error instanceof OGSHError) {
-            responseBody.error = (error as OGSHError).ogshError;
-        } else {
-            responseBody.error = "general/unspecified";
+    router.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+        if ((req.method !== "GET" && req.method !== "DELETE") && req.header("content-type") !== "application/json") {
+            error = new OGSHError("http/invalid-headers", `missing 'content-type: application/json' header`);
         }
-        responseBody.info = error.message; // TODO only display this in dev environments
+
+        const responseBody = formatErrorResponseBody(error);
         res.status(getErrorHttpStatus(responseBody.error));
         res.send(responseBody);
     });
 
+    const httpServer = createServer(router);
+    httpServer.on("upgrade", async (req, socket, head) => {
+        wsServer.handleUpgrade(req, socket, head, (ws) => {
+            wsServer.emit("connection", ws, req);
+        });
+    });
+
     await new Promise<void>(res => {
-        app.listen(daemonConfig.port, () => {
-            logger.info(`Started express on port ${daemonConfig.port}`);
+        httpServer.listen(daemonConfig.port, () => {
+            logger.info(`Started http server on port ${daemonConfig.port}`);
             res();
         });
     });

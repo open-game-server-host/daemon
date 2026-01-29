@@ -11,13 +11,16 @@
     "url": "git+https://github.com/open-game-server-host/daemon.git"
   },
   "dependencies": {
-    "@types/dockerode": "^4.0.0",
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.0.9",
-    "axios": "^1.13.2",
     "dockerode": "^4.0.9",
     "express": "^5.2.1",
     "express-validator": "^7.3.1",
-    "fast-folder-size": "^2.4.0"
+    "fast-folder-size": "^2.4.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/dockerode": "^4.0.0",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.0.9",
+    "@types/ws": "^8.18.1"
   }
 }
