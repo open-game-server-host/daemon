@@ -17,10 +17,6 @@ import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor }
 
 const containerWrappersById = new Map<string, ContainerWrapper>();
 
-export function registerContainerWrapper(wrapper: ContainerWrapper) {
-    containerWrappersById.set(wrapper.getId(), wrapper);
-}
-
 export function getContainerWrapper(id: string): ContainerWrapper | undefined {
     return containerWrappersById.get(id);
 }
@@ -50,7 +46,7 @@ export interface ContainerCreatePortMappingOptions {
 
 type Action = () => void | Promise<void>;
 
-interface ContainerOptions {
+export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
     versionId: string;
@@ -103,9 +99,9 @@ export class ContainerWrapper {
         timestamp: 0
     }
 
-    constructor(
+    private constructor(
         private readonly id: string,
-        private readonly options: ContainerOptions
+        private readonly options: ContainerWrapperOptions
     ) {
         this.logger = new Logger(`CONTAINER: ${id}`);
         this.logger.info("Registered");
@@ -153,6 +149,19 @@ export class ContainerWrapper {
         })();
     }
 
+    static async register(id: string, options: ContainerWrapperOptions) {
+        const version = await getVersion(options.appId, options.variantId, options.versionId);
+        if (!version) throw new OGSHError("container/invalid", `invalid app id '${options.appId}' variant id '${options.variantId}' version id ${options.versionId}'`);
+        if (!Number.isInteger(options.segments)) throw new OGSHError("container/invalid", `'segments' should be an integer > 0, got '${options.segments}'`);
+        if (!version.supported_runtime_images.includes(options.runtime)) throw new OGSHError("container/invalid", `runtime '${options.runtime}' not supported by version id '${options.versionId}'`);
+        // TODO check runtimeImage
+        // TODO get name max length from config
+        if (typeof options.name !== "string" || options.name.length > 100) throw new OGSHError("container/invalid", `'name' should be a string with max length of X (${(options.name || "").length} / X)`);
+
+        const wrapper = new ContainerWrapper(id, options);
+        containerWrappersById.set(wrapper.getId(), wrapper);
+    }
+
     private queueAction(action: Action) {
         if (this.terminated) {
             throw new OGSHError("container/terminated", `could not queue action for container id '${this.id}'`);
@@ -168,7 +177,7 @@ export class ContainerWrapper {
         return `C_${this.id}`;
     }
 
-    getOptions(): ContainerOptions {
+    getOptions(): ContainerWrapperOptions {
         return this.options;
     }
 

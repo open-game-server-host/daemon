@@ -1,5 +1,5 @@
 import { expressErrorHandler, Logger } from "@open-game-server-host/backend-lib";
-import express from "express";
+import express, { Request } from "express";
 import { param } from "express-validator";
 import { createServer } from "node:http";
 import { getDaemonConfig } from "../config/daemonConfig";
@@ -35,3 +35,5 @@ export async function initHttpServer(logger: Logger) {
         });
     });
 }
+
+export type BodyRequest<Body = any> = Request<any, any, Body>;
