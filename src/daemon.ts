@@ -3,6 +3,7 @@ const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
+import { checkAppArchiveAreUpToDate } from "./apps/appArchiveCache";
 import { getDaemonConfig } from "./config/daemonConfig";
 import { ContainerWrapper } from "./container/container";
 import { initHttpServer } from "./http/httpServer";
@@ -18,7 +19,7 @@ async function init() {
         mkdirSync(daemonConfig.container_files_path, { recursive: true });
     }
 
-    // TODO make sure all app archives are up to date and download those that aren't
+    await checkAppArchiveAreUpToDate();
 
     // TODO temporary for testing a container
     ContainerWrapper.register("aContainerId", {
@@ -26,10 +27,10 @@ async function init() {
         variantId: "vanilla",
         versionId: "1.21.11",
         name: "Test",
-        runtimeImage: "java25",
-        segments: 4,
-        runtime: "jvm"
+        dockerImage: "java25",
+        segments: 4
     });
+
     await initHttpServer(logger);
 }
 

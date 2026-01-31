@@ -34,7 +34,7 @@ export async function getDaemonConfig(): Promise<Daemon> {
     return daemonConfig.getConfig();
 }
 
-export async function getAppArchivePath(appId: string, variantId: string, versionId: string): Promise<string> {
+export async function getAppArchivePath(appId: string, variantId: string, versionId: string, build: number): Promise<string> {
     const daemonConfig = await getDaemonConfig();
-    return `${daemonConfig.app_archives_path}/${appId}-${variantId}-${versionId}.7z`;
+    return `${daemonConfig.app_archives_path}/${appId}-${variantId}-${versionId}-${build}.7z`;
 }

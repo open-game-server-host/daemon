@@ -1,6 +1,7 @@
+import { OGSHError } from "@open-game-server-host/backend-lib";
 import { Router } from "express";
 import { param } from "express-validator";
-import { ContainerWrapper, ContainerWrapperOptions } from "../../container/container";
+import { ContainerWrapper, ContainerWrapperOptions, getContainerWrapper } from "../../container/container";
 import { BodyRequest } from "../httpServer";
 
 export const internalHttpRouter = Router();
@@ -25,3 +26,11 @@ internalHttpRouter.post("/container/:containerId", param("containerId").isString
 //     }
 //     container.getOptions().runtime = req.body.runtime;
 // });
+
+internalHttpRouter.post("/container/:containerId/config", param("containerId").isString(), async (req: BodyRequest<Partial<ContainerWrapperOptions>>, res) => {
+    const container = getContainerWrapper(req.params!.containerId);
+    if (!container) {
+        throw new OGSHError("container/not-found", `could not update options for unregistered container id '${req.params!.containerId}'`);
+    }
+    await container.updateOptions(req.body);
+});

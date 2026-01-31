@@ -11,7 +11,7 @@
     "url": "git+https://github.com/open-game-server-host/daemon.git"
   },
   "dependencies": {
-    "@open-game-server-host/backend-lib": "^1.0.7",
+    "@open-game-server-host/backend-lib": "^1.0.10",
     "dockerode": "^4.0.9",
     "express": "^5.2.1",
     "express-validator": "^7.3.1",

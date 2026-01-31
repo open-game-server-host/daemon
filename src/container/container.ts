@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 export const containerEventEmitter = new EventEmitter();
 
-import { getApp, getGlobalConfig, getVariant, getVersion, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
+import { getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { mkdirSync, rmSync } from "fs";
 import os from "os";
@@ -51,8 +51,7 @@ export interface ContainerWrapperOptions {
     variantId: string;
     versionId: string;
     segments: number;
-    runtime: string;
-    runtimeImage: string;
+    dockerImage: string;
     name: string;
 }
 
@@ -66,6 +65,26 @@ const stopReasons: {[code: number]: string} = {
     139: "memory_error",
     143: "normal_close"
 } as const;
+
+async function validateContainerApp(appId: string, variantId: string, versionId: string): Promise<Version> {
+    const version = await getVersion(appId, variantId, versionId);
+    if (!version) {
+        throw new OGSHError("container/invalid", `invalid version, app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
+    }
+    return version;
+}
+
+function validateContainerSegments(segments: number) {
+    if (!Number.isInteger(segments) || segments <= 0) {
+        throw new OGSHError("container/invalid", `segments should be a positive integer, not '${segments}'`);
+    }
+}
+
+function validateContainerDockerImage(version: Version, dockerImage: string) {
+    if (!version.supported_docker_images.includes(dockerImage)) {
+        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supported_docker_images}`);
+    }
+}
 
 const maxCpus = os.cpus().length;
 
@@ -126,7 +145,11 @@ export class ContainerWrapper {
         (async () => {
             const daemonConfig = await getDaemonConfig();
             const containerFilesPath = await this.getContainerFilesPath();
-            const storageMonitor = getStorageMonitor(this.options.runtime);
+            const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
+            if (!version) {
+                throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`);
+            }
+            const storageMonitor = getStorageMonitor(getVersionRuntime(version));
             while (!this.terminated) {
                 this.mostRecentStats.timestamp = Date.now();
                 this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath); // Storage needs to be tracked even when the container is offline because people can upload/download files
@@ -150,14 +173,9 @@ export class ContainerWrapper {
     }
 
     static async register(id: string, options: ContainerWrapperOptions) {
-        const version = await getVersion(options.appId, options.variantId, options.versionId);
-        if (!version) throw new OGSHError("container/invalid", `invalid app id '${options.appId}' variant id '${options.variantId}' version id ${options.versionId}'`);
-        if (!Number.isInteger(options.segments)) throw new OGSHError("container/invalid", `'segments' should be an integer > 0, got '${options.segments}'`);
-        if (!version.supported_runtime_images.includes(options.runtime)) throw new OGSHError("container/invalid", `runtime '${options.runtime}' not supported by version id '${options.versionId}'`);
-        // TODO check runtimeImage
-        // TODO get name max length from config
-        if (typeof options.name !== "string" || options.name.length > 100) throw new OGSHError("container/invalid", `'name' should be a string with max length of X (${(options.name || "").length} / X)`);
-
+        const version = await validateContainerApp(options.appId, options.variantId, options.versionId);
+        validateContainerSegments(options.segments);
+        validateContainerDockerImage(version, options.dockerImage);
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
     }
@@ -197,18 +215,18 @@ export class ContainerWrapper {
         }
     }
 
-    async getRuntimeImage(): Promise<string> {
-        let runtimeImage = this.options.runtimeImage;
+    async getDockerImage(): Promise<string> {
         const variant = await getVariant(this.options.appId, this.options.variantId);
         if (!variant) {
             throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
         }
+        let dockerImage = this.options.dockerImage;
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
-        if (!version?.supported_runtime_images.includes(runtimeImage)) {
-            runtimeImage = version?.default_runtime_image || variant.default_runtime_image;
+        if (!version?.supported_docker_images.includes(this.options.dockerImage)) {
+            dockerImage = version?.default_docker_image || variant.default_docker_image;
         }
         const daemonConfig = await getDaemonConfig();
-        return `${runtimeImage}:${daemonConfig.runtime_images_branch}`;
+        return `ghcr.io/open-game-server.host/container-images/${dockerImage}:${daemonConfig.runtime_images_branch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -273,7 +291,7 @@ export class ContainerWrapper {
 
         // Validate and update runtime image
         let fullImagePath = daemonConfig.runtime_images_repo.endsWith("/") ? daemonConfig.runtime_images_repo : `${daemonConfig.runtime_images_repo}/`;
-        fullImagePath += await this.getRuntimeImage();
+        fullImagePath += await this.getDockerImage();
         await pullDockerImage(daemonConfig.runtime_images_repo, fullImagePath, this.logger);
 
         // TODO run auto-patcher
@@ -348,9 +366,14 @@ export class ContainerWrapper {
 
         let running = true;
         (async () => {
-            const cpuMonitor = getCpuMonitor(this.options.runtime);
-            const memoryMonitor = getMemoryMonitor(this.options.runtime);
-            const networkMonitor = getNetworkMonitor(this.options.runtime);
+            const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
+            if (!version) {
+                throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`)
+            }
+            const runtime = getVersionRuntime(version);
+            const cpuMonitor = getCpuMonitor(runtime);
+            const memoryMonitor = getMemoryMonitor(runtime);
+            const networkMonitor = getNetworkMonitor(runtime);
             const containerInfo = await container.inspect().catch(error => {
                 throw new OGSHError("container/not-found", error);
             });
@@ -474,7 +497,8 @@ export class ContainerWrapper {
     private async installAction(appId: string, variantId: string, versionId: string) {
         this.logger.info("Installing");
 
-        if (!await getVersion(appId, variantId, versionId)) {
+        const version = await getVersion(appId, variantId, versionId);
+        if (!version) {
             throw new OGSHError("app/version-not-found", `failed to install container id '${this.id}' with app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
         }
 
@@ -488,7 +512,7 @@ export class ContainerWrapper {
         // Run container installer so that decompression doesn't happen inside this app
         // The user has already been allocated CPU time with their app so just use that
         const daemonConfig = await getDaemonConfig();
-        const appArchivePath = await getAppArchivePath(appId, variantId, versionId);
+        const appArchivePath = await getAppArchivePath(appId, variantId, versionId, version.current_build);
         const options = {
             ...await this.getContainerResources(),
             image: daemonConfig.app_installer_image,
@@ -547,5 +571,9 @@ export class ContainerWrapper {
 
     unregisterWebsocket(ws: WebSocket) {
         this.connectedWebsockets.delete(ws);
+    }
+
+    async updateOptions(options: Partial<ContainerWrapperOptions>) {
+        // TODO
     }
 }
