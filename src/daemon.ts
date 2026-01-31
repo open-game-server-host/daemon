@@ -5,7 +5,6 @@ logger.info("Starting");
 import { existsSync, mkdirSync } from "node:fs";
 import { checkAppArchiveAreUpToDate } from "./apps/appArchiveCache";
 import { getDaemonConfig } from "./config/daemonConfig";
-import { ContainerWrapper } from "./container/container";
 import { initHttpServer } from "./http/httpServer";
 
 async function init() {
@@ -21,15 +20,7 @@ async function init() {
 
     await checkAppArchiveAreUpToDate();
 
-    // TODO temporary for testing a container
-    ContainerWrapper.register("aContainerId", {
-        appId: "minecraft_java_edition",
-        variantId: "vanilla",
-        versionId: "1.21.11",
-        name: "Test",
-        dockerImage: "java25",
-        segments: 4
-    });
+    // TODO load this daemon's containers from the api
 
     await initHttpServer(logger);
 }
