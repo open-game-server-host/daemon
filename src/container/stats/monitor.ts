@@ -28,14 +28,16 @@ export async function defaultContainerCpuMonitor(wrapper: ContainerWrapper, tota
 }
 
 export async function defaultContainerMemoryMonitor(wrapper: ContainerWrapper, memory?: MemoryStats): Promise<ContainerMemory> {
+    const globalConfig = await getGlobalConfig();
+    const total = globalConfig.segment.memory_mb * wrapper.getOptions().segments * 1_000_000;
     if (!memory) {
         return {
-            total: 0,
+            total,
             used: 0
         }
     }
     return {
-        total: memory.limit,
+        total,
         used: memory.usage
     }
 }
