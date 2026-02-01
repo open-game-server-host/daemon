@@ -47,6 +47,10 @@ export interface ContainerCreatePortMappingOptions {
 
 type Action = () => void | Promise<void>;
 
+interface ContainerPort {
+    containerPort: number;
+    hostPort: number;
+}
 export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
@@ -54,6 +58,7 @@ export interface ContainerWrapperOptions {
     segments: number;
     dockerImage: string;
     name: string;
+    ports: ContainerPort[]; // container port : external port
 }
 
 const stopReasons: {[code: number]: string} = {
@@ -84,6 +89,20 @@ function validateContainerSegments(segments: number) {
 function validateContainerDockerImage(version: Version, dockerImage: string) {
     if (!version.supported_docker_images.includes(dockerImage)) {
         throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supported_docker_images}`);
+    }
+}
+
+function validateContainerPorts(ports: ContainerPort[]) {
+    if (!Array.isArray(ports)) {
+        throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
+    }
+    for (const port of ports) {
+        if (!Number.isInteger(port.containerPort)) {
+            throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
+        }
+        if (!Number.isInteger(port.hostPort)) {
+            throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
+        }
     }
 }
 
@@ -177,6 +196,7 @@ export class ContainerWrapper {
         const version = await validateContainerApp(options.appId, options.variantId, options.versionId);
         validateContainerSegments(options.segments);
         validateContainerDockerImage(version, options.dockerImage);
+        validateContainerPorts(options.ports);
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
     }
@@ -311,12 +331,12 @@ export class ContainerWrapper {
         }
 
         const portMappings: ContainerCreatePortMappingOptions[] = [];
-        Object.entries(variant?.ports || {}).forEach(([key, value]) => {
+        this.options.ports.forEach(port => {
             portMappings.push({
-                container_port: +key,
-                host_port: +key
+                container_port: port.containerPort,
+                host_port: port.hostPort
             });
-        });
+        })
 
         const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
@@ -408,10 +428,7 @@ export class ContainerWrapper {
             total: 100,
             used: 0
         };
-        this.mostRecentStats.memory = {
-            total: 0,
-            used: 0
-        };
+        this.mostRecentStats.memory.used = 0;
         this.mostRecentStats.network = {
             in: 0,
             out: 0
