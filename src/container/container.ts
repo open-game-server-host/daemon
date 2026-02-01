@@ -8,6 +8,7 @@ import os from "os";
 import path from "path";
 import Stream from "stream";
 import { WebSocket } from "ws";
+import { updateAppArchive } from "../apps/appArchiveCache";
 import { getAppArchivePath, getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { constants } from "../constants";
@@ -225,8 +226,9 @@ export class ContainerWrapper {
         if (!version?.supported_docker_images.includes(this.options.dockerImage)) {
             dockerImage = version?.default_docker_image || variant.default_docker_image;
         }
+        const globalConfig = await getGlobalConfig();
         const daemonConfig = await getDaemonConfig();
-        return `ghcr.io/open-game-server.host/container-images/${dockerImage}:${daemonConfig.runtime_images_branch}`;
+        return `${globalConfig.docker_registry_url}/container-images/${dockerImage}:${daemonConfig.runtime_images_branch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -287,12 +289,11 @@ export class ContainerWrapper {
 
         // TODO check whether service is locked
 
-        const daemonConfig = await getDaemonConfig();
-
         // Validate and update runtime image
-        let fullImagePath = daemonConfig.runtime_images_repo.endsWith("/") ? daemonConfig.runtime_images_repo : `${daemonConfig.runtime_images_repo}/`;
-        fullImagePath += await this.getDockerImage();
-        await pullDockerImage(daemonConfig.runtime_images_repo, fullImagePath, this.logger);
+        const globalConfig = await getGlobalConfig();
+        const daemonConfig = await getDaemonConfig();
+        const fullDockerImage = `${globalConfig.docker_registry_url}/container-runtimes/${this.options.dockerImage}:${daemonConfig.runtime_images_branch}`;
+        await pullDockerImage(globalConfig.docker_registry_url, fullDockerImage, this.logger);
 
         // TODO run auto-patcher
 
@@ -321,7 +322,7 @@ export class ContainerWrapper {
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
             environment_variables: environmentVariables,
-            image: fullImagePath,
+            image: fullDockerImage,
             name: containerId,
             bind_mounts: [
                 {
@@ -507,11 +508,22 @@ export class ContainerWrapper {
         rmSync(containerFilesPath, { recursive: true, force: true });
         mkdirSync(containerFilesPath);
 
-        await pullDockerImage("ghcr.io/open-game-server-host/app-installer-image", "ghcr.io/open-game-server-host/app-installer-image/install:main", this.logger);
+        const globalConfig = await getGlobalConfig();
+        const daemonConfig = await getDaemonConfig();
+        await pullDockerImage(globalConfig.docker_registry_url, daemonConfig.app_installer_image, this.logger);
+
+        // Make sure app archive is downloaded
+        let percent = 0;
+        await updateAppArchive(this.options.appId, this.options.variantId, this.options.versionId, version.current_build, progress => {
+            const newPercent = Math.floor(100 / progress.bytesTotal * progress.bytesProcessed);
+            if (percent !== newPercent) {
+                percent = newPercent;
+                this.pendingLogs.push(`  Downloading files ${percent}%`);
+            }
+        });
 
         // Run container installer so that decompression doesn't happen inside this app
         // The user has already been allocated CPU time with their app so just use that
-        const daemonConfig = await getDaemonConfig();
         const appArchivePath = await getAppArchivePath(appId, variantId, versionId, version.current_build);
         const options = {
             ...await this.getContainerResources(),

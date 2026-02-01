@@ -1,6 +1,6 @@
 import { getApps, getGlobalConfig, getVersion, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import { createWriteStream, existsSync, readdirSync, renameSync, rmSync } from "node:fs";
-import { getAppArchivePath } from "../config/daemonConfig";
+import { getAppArchivePath, getDaemonConfig } from "../config/daemonConfig";
 
 const logger = new Logger("APP ARCHIVE CACHE");
 
@@ -16,12 +16,15 @@ interface DownloadProgress {
 
 const archivesBeingUpdated = new Map<string, ArchiveUpdate>();
 
-readdirSync("app_archives").forEach(file => {
-    if (file.endsWith(".downloading")) {
-        logger.info(`Removing partially downloaded archive: ${file}`);
-        rmSync(`app_archives/${file}`);
-    }
-});
+export async function cleanupPartiallyDownloadedAppArchives() {
+    const daemonConfig = await getDaemonConfig();
+    readdirSync(daemonConfig.app_archives_path).forEach(file => {
+        if (file.endsWith(".downloading")) {
+            logger.info(`Removing partially downloaded archive: ${file}`);
+            rmSync(`app_archives/${file}`);
+        }
+    });
+}
 
 export async function checkAppArchiveAreUpToDate() {
     logger.info("Checking apps are up to date");
