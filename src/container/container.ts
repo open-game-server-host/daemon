@@ -237,18 +237,14 @@ export class ContainerWrapper {
     }
 
     async getDockerImage(): Promise<string> {
-        const variant = await getVariant(this.options.appId, this.options.variantId);
-        if (!variant) {
-            throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
-        }
-        let dockerImage = this.options.dockerImage;
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
-        if (!version?.supported_docker_images.includes(this.options.dockerImage)) {
-            dockerImage = version?.default_docker_image || variant.default_docker_image;
+        if (!version) {
+            throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}'`);
         }
+        const dockerImage = version.supported_docker_images.includes(this.options.dockerImage) ? this.options.dockerImage : version.default_docker_image;
         const globalConfig = await getGlobalConfig();
         const daemonConfig = await getDaemonConfig();
-        return `${globalConfig.docker_registry_url}/container-images/${dockerImage}:${daemonConfig.runtime_images_branch}`;
+        return `${globalConfig.docker_registry_url}/container-runtimes/${dockerImage}:${daemonConfig.runtime_images_branch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -311,8 +307,8 @@ export class ContainerWrapper {
 
         // Validate and update runtime image
         const globalConfig = await getGlobalConfig();
-        const daemonConfig = await getDaemonConfig();
-        const fullDockerImage = `${globalConfig.docker_registry_url}/container-runtimes/${this.options.dockerImage}:${daemonConfig.runtime_images_branch}`;
+        const fullDockerImage = await this.getDockerImage();
+        console.log(fullDockerImage);
         await pullDockerImage(globalConfig.docker_registry_url, fullDockerImage, this.logger);
 
         // TODO run auto-patcher
@@ -531,7 +527,7 @@ export class ContainerWrapper {
 
         // Make sure app archive is downloaded
         let percent = 0;
-        await updateAppArchive(this.options.appId, this.options.variantId, this.options.versionId, version.current_build, progress => {
+        await updateAppArchive(appId, variantId, versionId, version.current_build, progress => {
             const newPercent = Math.floor(100 / progress.bytesTotal * progress.bytesProcessed);
             if (percent !== newPercent) {
                 percent = newPercent;
@@ -569,6 +565,10 @@ export class ContainerWrapper {
         await appInstallerContainer.wait();
         
         await removeDockerContainer(this.getContainerId());
+
+        this.options.appId = appId;
+        this.options.variantId = variantId;
+        this.options.versionId = versionId;
     }
 
     async setConfig() {
