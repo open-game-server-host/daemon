@@ -3,7 +3,7 @@ const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
-import { checkAppArchiveAreUpToDate, cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
+import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
 import { getDaemonConfig } from "./config/daemonConfig";
 import { initHttpServer } from "./http/httpServer";
 
@@ -19,7 +19,6 @@ async function init() {
     }
 
     await cleanupPartiallyDownloadedAppArchives();
-    await checkAppArchiveAreUpToDate();
 
     // TODO load this daemon's containers from the api
 

@@ -1,4 +1,4 @@
-import { DownloadProgress, downloadToFile, getApps, getGlobalConfig, getVersion, Logger } from "@open-game-server-host/backend-lib";
+import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger } from "@open-game-server-host/backend-lib";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { getAppArchivePath, getDaemonConfig } from "../config/daemonConfig";
 
@@ -14,18 +14,6 @@ export async function cleanupPartiallyDownloadedAppArchives() {
             rmSync(`app_archives/${file}`);
         }
     });
-}
-
-export async function checkAppArchiveAreUpToDate() {
-    logger.info("Checking apps are up to date");
-    const apps = await getApps();
-    for (const [appId, app] of Object.entries(apps)) {
-        for (const [variantId, variant] of Object.entries(app.variants)) {
-            for (const [versionId, version] of Object.entries(variant.versions)) {
-                updateAppArchive(appId, variantId, versionId, version.current_build);
-            }
-        }
-    }
 }
 
 export async function isAppArchiveLatestBuild(appId: string, variantId: string, versionId: string, build: number): Promise<boolean> {
