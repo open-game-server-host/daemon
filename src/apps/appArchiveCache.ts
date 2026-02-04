@@ -1,20 +1,10 @@
-import { getApps, getGlobalConfig, getVersion, Logger, OGSHError } from "@open-game-server-host/backend-lib";
-import { createWriteStream, existsSync, readdirSync, renameSync, rmSync } from "node:fs";
+import { DownloadProgress, downloadToFile, getApps, getGlobalConfig, getVersion, Logger } from "@open-game-server-host/backend-lib";
+import { existsSync, readdirSync, rmSync } from "node:fs";
 import { getAppArchivePath, getDaemonConfig } from "../config/daemonConfig";
 
 const logger = new Logger("APP ARCHIVE CACHE");
 
-interface ArchiveUpdate {
-    progressCallbacks: ((progress: DownloadProgress) => void)[];
-    downloadProgress: DownloadProgress;
-}
-
-interface DownloadProgress {
-    bytesTotal: number;
-    bytesProcessed: number;
-}
-
-const archivesBeingUpdated = new Map<string, ArchiveUpdate>();
+const archivesBeingUpdated = new Map<string, ((progress: DownloadProgress) => void)[]>();
 
 export async function cleanupPartiallyDownloadedAppArchives() {
     const daemonConfig = await getDaemonConfig();
@@ -47,7 +37,7 @@ export async function updateAppArchive(appId: string, variantId: string, version
     const archivePath = await getAppArchivePath(appId, variantId, versionId, build);
     if (archivesBeingUpdated.has(archivePath)) {
         if (progressCallback) {
-            archivesBeingUpdated.get(archivePath)!.progressCallbacks.push(progressCallback);
+            archivesBeingUpdated.get(archivePath)!.push(progressCallback);
         }
         return;
     }
@@ -55,45 +45,20 @@ export async function updateAppArchive(appId: string, variantId: string, version
         return;
     }
 
-    const downloadProgress: DownloadProgress = {
-        bytesTotal: 1,
-        bytesProcessed: 0
-    }
-    const update: ArchiveUpdate = {
-        downloadProgress,
-        progressCallbacks: []
-    }
+    archivesBeingUpdated.set(archivePath, []);
     if (progressCallback) {
-        update.progressCallbacks.push(progressCallback);
+        archivesBeingUpdated.get(archivePath)!.push(progressCallback);
     }
-    archivesBeingUpdated.set(archivePath, update);
 
     logger.info(`Downloading ${appId} / ${variantId} / ${versionId} / ${build}`);
     const globalConfig = await getGlobalConfig();
-    const response = await fetch(`http://${globalConfig.app_archive_url}/v1/archive/${appId}/${variantId}/${versionId}/${build}`);
-    if (!response.body) {
-        throw new OGSHError("general/unspecified", `no response.body for ${appId} / ${variantId} / ${versionId} / ${build}`);
-    }
-
-    const contentLength = response.headers.get("Content-Length");
-    if (!contentLength) {
-        throw new OGSHError("general/unspecified", `missing Content-Length header downloading archive for ${appId} / ${variantId} / ${versionId} / ${build}`);
-    }
-    downloadProgress.bytesTotal = +contentLength;
-
-    const reader = response.body?.getReader();
-    const tempArchivePath = `${archivePath}.downloading`;
-    const writeStream = createWriteStream(tempArchivePath);
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            renameSync(tempArchivePath, archivePath);
-            logger.info(`Finished downloading ${appId} / ${variantId} / ${versionId} / ${build}`)
-            break;
+    const archiveUrl = `http://${globalConfig.app_archive_url}/v1/archive/${appId}/${variantId}/${versionId}/${build}`;
+    await downloadToFile(archiveUrl, archivePath, {
+        headers: {
+            "authorization": "TODO"
         }
-
-        writeStream.write(value);
-        downloadProgress.bytesProcessed += value.byteLength;
-        archivesBeingUpdated.get(archivePath)?.progressCallbacks.forEach(cb => cb(downloadProgress));
-    }
+    }, progress => {
+        archivesBeingUpdated.get(archivePath)!.forEach(cb => cb(progress));
+    });
+    archivesBeingUpdated.delete(archivePath);
 }
