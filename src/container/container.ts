@@ -199,6 +199,7 @@ export class ContainerWrapper {
         validateContainerPorts(options.ports);
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
+        wrapper.install(options.appId, options.variantId, options.versionId);
     }
 
     private queueAction(action: Action) {
