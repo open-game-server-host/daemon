@@ -1,5 +1,5 @@
 import { Response, Router } from "express";
-import { body, check } from "express-validator";
+import { body } from "express-validator";
 import { ContainerAuthLocals } from "../auth/containerAuth";
 import { UserAuthLocals } from "../auth/userAuth";
 import { BodyRequest } from "../httpServer";
@@ -38,20 +38,6 @@ interface CommandBody {
 }
 containerHttpRouter.post("/command", body("command").isString().trim(), async (req: BodyRequest<CommandBody>, res: ContainerResponse) => {
     res.locals.wrapper.command(req.body.command);
-    res.send();
-});
-
-interface InstallBody {
-    appId: string;
-    variantId: string;
-    versionId: string;
-}
-containerHttpRouter.post("/install", [
-    check("appId").isString(),
-    check("variantId").isString(),
-    check("versionId").isString(),
-], async (req: BodyRequest<InstallBody>, res: ContainerResponse) => {
-    res.locals.wrapper.install(req.body.appId, req.body.variantId, req.body.versionId);
     res.send();
 });
 

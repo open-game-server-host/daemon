@@ -47,7 +47,7 @@ export interface ContainerCreatePortMappingOptions {
 
 type Action = () => void | Promise<void>;
 
-interface ContainerPort {
+export interface ContainerPort {
     containerPort: number;
     hostPort: number;
 }
@@ -57,7 +57,6 @@ export interface ContainerWrapperOptions {
     versionId: string;
     segments: number;
     dockerImage: string;
-    name: string;
     ports: ContainerPort[]; // container port : external port
 }
 
