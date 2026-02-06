@@ -1,12 +1,12 @@
 import { OGSHError } from "@open-game-server-host/backend-lib";
 import { Response, Router } from "express";
 import { body, check, param } from "express-validator";
-import { ContainerPort, ContainerWrapper, ContainerWrapperOptions } from "../../container/container";
+import { ContainerPort, ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
 import { BodyRequest } from "../httpServer";
 
 export const internalHttpRouter = Router();
 
-function getContainerWrapper(containerId: string): ContainerWrapper {
+function getContainer(containerId: string): ContainerWrapper {
     const wrapper = getContainerWrapper(containerId);
     if (!wrapper) {
         throw new OGSHError("container/not-found", `container id '${containerId}' is not registered`);
@@ -17,6 +17,7 @@ function getContainerWrapper(containerId: string): ContainerWrapper {
 // User has just purchased an app/game, create the container
 internalHttpRouter.post("/container/:containerId", param("containerId").isString(), async (req: BodyRequest<ContainerWrapperOptions>, res) => {
     await ContainerWrapper.register(req.params.containerId, req.body);
+    res.send();
 });
 
 interface InstallBody {
@@ -29,7 +30,9 @@ internalHttpRouter.post("/container/:containerId/install", [
     check("variantId").isString(),
     check("versionId").isString(),
 ], async (req: BodyRequest<InstallBody>, res: Response) => {
-    getContainerWrapper(req.params.containerId).install(req.body.appId, req.body.variantId, req.body.versionId);
+    const { appId, variantId, versionId } = req.body;
+    await validateContainerApp(appId, variantId, versionId);
+    getContainer(req.params.containerId).install(appId, variantId, versionId);
     res.send();
 });
 
@@ -40,7 +43,7 @@ internalHttpRouter.post("/container/:containerId/image", [
     param("containerId").isString(),
     body("dockerImage").isString()
 ], async (req: BodyRequest<RuntimeBody>, res: Response) => {
-    getContainerWrapper(req.params.containerId).getOptions().dockerImage = req.body.dockerImage;
+    getContainer(req.params.containerId).getOptions().dockerImage = req.body.dockerImage;
     res.send();
 });
 
@@ -58,6 +61,11 @@ internalHttpRouter.post("/container/:containerId/ports", [
         }
     })
 ], (req: BodyRequest<PortsBody>, res: Response) => {
-    getContainerWrapper(req.params.containerId).getOptions().ports = req.body.ports;
+    getContainer(req.params.containerId).getOptions().ports = req.body.ports;
+    res.send();
+});
+
+internalHttpRouter.post("/stopallcontainers", (req, res) => {
+    getContainerWrappers().forEach(wrapper => wrapper.stop());
     res.send();
 });
