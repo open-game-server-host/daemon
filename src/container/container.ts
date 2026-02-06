@@ -22,6 +22,10 @@ export function getContainerWrapper(id: string): ContainerWrapper | undefined {
     return containerWrappersById.get(id);
 }
 
+export function getContainerWrappers(): ContainerWrapper[] {
+    return Array.from(containerWrappersById.values());
+}
+
 export interface ContainerCreateOptions {
     environment_variables: {[key: string]: string};
 	max_cpus: number;
@@ -71,7 +75,7 @@ const stopReasons: {[code: number]: string} = {
     143: "normal_close"
 } as const;
 
-async function validateContainerApp(appId: string, variantId: string, versionId: string): Promise<Version> {
+export async function validateContainerApp(appId: string, variantId: string, versionId: string): Promise<Version> {
     const version = await getVersion(appId, variantId, versionId);
     if (!version) {
         throw new OGSHError("container/invalid", `invalid version, app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
@@ -155,11 +159,16 @@ export class ContainerWrapper {
             while (!this.terminated) {
                 const action = this.actionQueue.shift();
                 if (action) {
-                    await action();
+                    try {
+                        await action();
+                    } catch (error) {
+                        this.logger.error(error as Error);
+                        this.actionQueue = []; // Clear action queue when an error occurs because the container's state might be invalid
+                    }
                 }
                 await sleep(250);
             }
-        })();
+        }).bind(this)();
 
         (async () => {
             const daemonConfig = await getDaemonConfig();
@@ -171,7 +180,7 @@ export class ContainerWrapper {
             const storageMonitor = getStorageMonitor(getVersionRuntime(version));
             while (!this.terminated) {
                 this.mostRecentStats.timestamp = Date.now();
-                this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath); // Storage needs to be tracked even when the container is offline because people can upload/download files
+                this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
                 const events = {
                     logs: this.pendingLogs,
                     stats: this.mostRecentStats
@@ -409,9 +418,9 @@ export class ContainerWrapper {
                     const rawStats = JSON.parse(data.toString());
                     this.mostRecentStats.sessionLength = Date.now() - sessionStart;
                     this.mostRecentStats.online = true;
-                    this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats);
-                    this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats);
-                    this.mostRecentStats.network = await networkMonitor(this, rawStats.networks);
+                    this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats).catch(error => this.mostRecentStats.cpu);
+                    this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
+                    this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
                 });
             });
         })();
@@ -563,12 +572,12 @@ export class ContainerWrapper {
         await appInstallerContainer.start();
         this.monitorContainer(appInstallerContainer);
         await appInstallerContainer.wait();
-        
         await removeDockerContainer(this.getContainerId());
 
         this.options.appId = appId;
         this.options.variantId = variantId;
         this.options.versionId = versionId;
+        this.options.dockerImage = version.default_docker_image;
     }
 
     async setConfig() {
