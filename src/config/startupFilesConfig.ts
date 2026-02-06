@@ -47,7 +47,6 @@ updateStartupFiles();
 
 export async function getStartupFilesPath(appId: string, variantId: string): Promise<string> {
     if (!filesDownloaded) {
-        console.log
         await new Promise<void>(res => callbacks.push(res));
     }
     const daemonConfig = await getDaemonConfig();
