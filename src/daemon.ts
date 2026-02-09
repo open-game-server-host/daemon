@@ -1,9 +1,9 @@
-import { Logger } from "@open-game-server-host/backend-lib";
+import { getApps, Logger } from "@open-game-server-host/backend-lib";
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
-import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
+import { cleanupPartiallyDownloadedAppArchives, updateAppArchive } from "./apps/appArchiveCache";
 import { getDaemonConfig } from "./config/daemonConfig";
 import { initHttpServer } from "./http/httpServer";
 
@@ -19,6 +19,14 @@ async function init() {
     }
 
     await cleanupPartiallyDownloadedAppArchives();
+    const apps = await getApps();
+    for (const [appId, app] of Object.entries(apps || {})) {
+        for (const [variantId, variant] of Object.entries(app.variants || {})) {
+            for (const [versionId, version] of Object.entries(variant.versions || {})) {
+                updateAppArchive(appId, variantId, versionId, version.current_build);
+            }
+        }
+    }
 
     // TODO load this daemon's containers from the api
 
