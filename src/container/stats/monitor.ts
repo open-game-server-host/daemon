@@ -78,8 +78,7 @@ export async function defaultContainerStorageMonitor(wrapper: ContainerWrapper, 
     return new Promise<ContainerStorage>((res, rej) => {
         fastFolderSize(containerFilesPath, (error, bytes) => {
             if (error) {
-                console.log(error);
-                rej(`failed to get size of folder '${containerFilesPath}'`);
+                rej(`Failed to get size of folder '${containerFilesPath}'`);
                 return;
             }
             if (!bytes) {
