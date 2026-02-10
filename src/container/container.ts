@@ -151,7 +151,7 @@ export class ContainerWrapper {
             if (!running) {
                 return;
             }
-            this.monitorContainer(await getDockerContainer(this.getContainerId()))
+            this.monitorContainer(await getDockerContainer(this.getContainerId()));
         });
 
         (async () => {
@@ -207,7 +207,6 @@ export class ContainerWrapper {
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
         wrapper.install(options.appId, options.variantId, options.versionId);
-        wrapper.start();
     }
 
     private queueAction(action: Action) {
@@ -306,7 +305,11 @@ export class ContainerWrapper {
     }
 
     private async startAction() {
-        this.logger.info("Starting");
+        this.logger.info("Starting", {
+            appId: this.options.appId,
+            variantId: this.options.variantId,
+            versionId: this.options.versionId
+        });
 
         if (await this.isRunning()) {
             return;
@@ -367,87 +370,110 @@ export class ContainerWrapper {
         this.logger.info("Started");
 
         containerEventEmitter.emit("start", this);
-        this.monitorContainer(container).catch(error => {
-            this.logger.error(error);
+        const sessionStart = Date.now();
+
+        let running = false;
+        (async () => {
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                if (!running) {
+                    return;
+                }
+
+                this.logger.info(`Starting container monitors`, {
+                    attempt
+                });
+                let success = false;
+                await this.monitorContainer(container, sessionStart).then(() => success = true).catch(error => {
+                    this.logger.error(error);
+                });
+                if (success) {
+                    return;
+                }
+            }
+            this.logger.error(new OGSHError("general/unspecified", `Failed to start container monitors for id '${this.id}', container will run but there will be no console logs or statistics`));
+        })();
+
+        container.wait().then(output => {
+            containerEventEmitter.emit("stop", this);
+
+            this.mostRecentStats.sessionLength = 0;
+            this.mostRecentStats.online = false;
+            this.mostRecentStats.cpu = {
+                total: 100,
+                used: 0
+            };
+            this.mostRecentStats.memory.used = 0;
+            this.mostRecentStats.network = {
+                in: 0,
+                out: 0
+            };
+            const reason = stopReasons[output?.StatusCode] || "unknown";
+            this.logger.info("Stopped", {
+                reason,
+                appId: this.options.appId,
+                variantId: this.options.variantId,
+                versionId: this.options.versionId,
+                build: version?.current_build
+            });
         });
     }
 
-    private async monitorContainer(container: Docker.Container) {
-        const sessionStart = Date.now();
-        const daemonConfig = await getDaemonConfig();
-
-        await new Promise<void>((res, rej) => {
-            container.logs({
-                follow: true,
-                stdout: true,
-                stderr: true,
-                tail: daemonConfig.previous_logs_to_show_on_connect
-            }).then(stream => {
-                res();
-                stream.on("data", (data: Buffer) => {
-                    let message = data.toString();
-                    message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
-                    this.pendingLogs.push(message);
-                    // console.log(`[${this.id}] ${message}`);
-                });
-            }).catch(error => rej(new OGSHError("general/unspecified", error)));
+    private async monitorContainer(container: Docker.Container, sessionStart: number = Date.now()) {
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
+        if (!version) {
+            throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`)
+        }
+        const runtime = getVersionRuntime(version);
+        const cpuMonitor = getCpuMonitor(runtime);
+        const memoryMonitor = getMemoryMonitor(runtime);
+        const networkMonitor = getNetworkMonitor(runtime);
+        const containerInfo = await container.inspect().catch(error => { // TODO this could be calculated instead of inspecting docker container
+            throw new OGSHError("container/not-found", error);
         });
-
-        let running = true;
-
-        await new Promise<void>(async (res, rej) => {
-            const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
-            if (!version) {
-                throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`)
+        const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
+        if (!totalNanoCpus) {
+            throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.id}'`);
+        }
+        const thisWrapper = this;
+        await container.stats({
+            stream: true
+        }).then(stream => {
+            let running = true;
+            function stopHandler(wrapper: ContainerWrapper) {
+                if (wrapper === thisWrapper) {
+                    running = false;
+                    containerEventEmitter.removeListener("stop", stopHandler);
+                }
             }
-            const runtime = getVersionRuntime(version);
-            const cpuMonitor = getCpuMonitor(runtime);
-            const memoryMonitor = getMemoryMonitor(runtime);
-            const networkMonitor = getNetworkMonitor(runtime);
-            const containerInfo = await container.inspect().catch(error => {
-                throw new OGSHError("container/not-found", error);
+
+            stream.on("data", async (data: Buffer) => {
+                if (!running) {
+                    stream.removeAllListeners();
+                    return;
+                }
+                const rawStats = JSON.parse(data.toString());
+                this.mostRecentStats.sessionLength = Date.now() - sessionStart;
+                this.mostRecentStats.online = true;
+                this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats).catch(error => this.mostRecentStats.cpu);
+                this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
+                this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
             });
-            const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
-            if (!totalNanoCpus) {
-                throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.id}'`)
-            }
-            container.stats({
-                stream: true
-            }).then(async stream => {
-                res();
-                stream.on("data", async (data: Buffer) => {
-                    if (!running) {
-                        stream.removeAllListeners();
-                        return;
-                    }
-                    const rawStats = JSON.parse(data.toString());
-                    this.mostRecentStats.sessionLength = Date.now() - sessionStart;
-                    this.mostRecentStats.online = true;
-                    this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats).catch(error => this.mostRecentStats.cpu);
-                    this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
-                    this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
-                });
-            }).catch(error => rej(new OGSHError("general/unspecified", error)));
         });
 
-        const output = await container.wait();
-        running = false;
-        this.mostRecentStats.sessionLength = 0;
-        this.mostRecentStats.online = false;
-        this.mostRecentStats.cpu = {
-            total: 100,
-            used: 0
-        };
-        this.mostRecentStats.memory.used = 0;
-        this.mostRecentStats.network = {
-            in: 0,
-            out: 0
-        };
-        const reason = stopReasons[output?.StatusCode] || "unknown";
-        this.logger.info("Stopped", {
-            reason
+        const daemonConfig = await getDaemonConfig();
+        await container.logs({
+            follow: true,
+            stdout: true,
+            stderr: true,
+            tail: daemonConfig.previous_logs_to_show_on_connect
+        }).then(stream => {
+            stream.on("data", (data: Buffer) => {
+                let message = data.toString();
+                message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
+                this.pendingLogs.push(message);
+                // console.log(`[${this.id}] ${message}`);
+            });
         });
-        containerEventEmitter.emit("stop", this);
     }
 
     stop() {
@@ -532,7 +558,7 @@ export class ContainerWrapper {
 
         // Make sure app archive is downloaded
         let percent = 0;
-        await updateAppArchive(appId, variantId, versionId, version.current_build, progress => {
+        await updateAppArchive(appId, variantId, versionId, version.current_build, this.logger, progress => {
             const newPercent = Math.floor(100 / progress.bytesTotal * progress.bytesProcessed);
             if (percent !== newPercent) {
                 percent = newPercent;
