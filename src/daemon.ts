@@ -18,12 +18,12 @@ async function init() {
         mkdirSync(daemonConfig.container_files_path, { recursive: true });
     }
 
-    await cleanupPartiallyDownloadedAppArchives();
+    await cleanupPartiallyDownloadedAppArchives(logger);
     const apps = await getApps();
     for (const [appId, app] of Object.entries(apps || {})) {
         for (const [variantId, variant] of Object.entries(app.variants || {})) {
             for (const [versionId, version] of Object.entries(variant.versions || {})) {
-                updateAppArchive(appId, variantId, versionId, version.current_build);
+                updateAppArchive(appId, variantId, versionId, version.current_build, logger);
             }
         }
     }
