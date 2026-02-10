@@ -1,4 +1,4 @@
-import { getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
+import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
@@ -37,12 +37,25 @@ export async function isDockerContainerRunning(container: string | Docker.Contai
 	return await getContainer(container).inspect().then(info => info.State.Running).catch(error => false);
 }
 
+interface DockerPullPromise {
+	res: () => void;
+	rej: (reason?: any) => void;
+}
+const pullPromises = new Map<string, DockerPullPromise[]>();
 export async function pullDockerImage(registryUrl: string, fullImageName: string, logger: Logger) {
-	logger.info("Pulling Docker image", {
-		image: fullImageName
+	let pull = !pullPromises.has(fullImageName);
+
+	const promise = new Promise<void>((res, rej) => {
+		const promises = pullPromises.get(fullImageName) || [];
+		promises.push({
+			res,
+			rej
+		});
+		pullPromises.set(fullImageName, promises);
 	});
-	await new Promise<void>(async (res, rej) => {
-		await docker.pull(fullImageName, {
+
+	if (pull) {
+		docker.pull(fullImageName, {
 			authconfig: {
 				username: getCredentials().github_packages_read_username,
 				password: getCredentials().github_packages_read_token,
@@ -56,12 +69,16 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 				logger.info("Finished pulling Docker image", {
 					image: fullImageName
 				});
-				res();
+				pullPromises.get(fullImageName)!.forEach(promise => promise.res());
+				pullPromises.delete(fullImageName);
 			}, () => {});
 		}).catch(error => {
-			rej(new OGSHError("container/image-pull-failed", error));
+			pullPromises.get(fullImageName)!.forEach(promise => promise.rej(new OGSHError("container/image-pull-failed", error)));
+			pullPromises.delete(fullImageName);
 		});
-	});
+	}
+
+	return promise;
 }
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {
@@ -125,4 +142,33 @@ export async function removeDockerContainer(containerId: string) {
         force: true, // Kill container before removing it
         v: true // Remove anonymous volumes
     }).catch(_ => {});
+}
+
+// TODO test whether this is necessary
+let containerStartQueue: { container: Docker.Container, finish: (value: any) => void }[] | undefined;
+export async function startDockerContainer(container: Docker.Container): Promise<any> {
+	let processQueue = false;
+	if (!containerStartQueue) {
+		containerStartQueue = [];
+		processQueue = true;
+	}
+	const promise = new Promise<any>(res => {
+		containerStartQueue!.push({
+			container,
+			finish: res
+		});
+	});
+	if (processQueue) {
+		(async () => {
+			do {
+				const containerToStart = containerStartQueue.shift();
+				if (containerToStart) {
+					containerToStart.finish(await containerToStart.container.start());
+					await sleep(250);
+				}
+			} while (containerStartQueue.length > 0);
+			containerStartQueue = undefined;
+		})();
+	}
+	return promise;
 }
