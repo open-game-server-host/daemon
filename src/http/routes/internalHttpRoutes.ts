@@ -1,7 +1,7 @@
-import { OGSHError } from "@open-game-server-host/backend-lib";
+import { ContainerPort, OGSHError } from "@open-game-server-host/backend-lib";
 import { Response, Router } from "express";
 import { body, check, param } from "express-validator";
-import { ContainerPort, ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
+import { ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
 import { BodyRequest } from "../httpServer";
 
 export const internalHttpRouter = Router();
@@ -43,7 +43,7 @@ internalHttpRouter.post("/container/:containerId/image", [
     param("containerId").isString(),
     body("dockerImage").isString()
 ], async (req: BodyRequest<RuntimeBody>, res: Response) => {
-    getContainer(req.params.containerId).getOptions().dockerImage = req.body.dockerImage;
+    getContainer(req.params.containerId).getOptions().runtime = req.body.dockerImage;
     res.send();
 });
 

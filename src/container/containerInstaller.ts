@@ -37,7 +37,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 }
                 
                 install.wrapper.log("Install started");
-                const { appId, variantId, versionId } = install.wrapper.getOptions();
+                const { app_id: appId, variant_id: variantId, version_id: versionId } = install.wrapper.getOptions();
                 const appArchivePath = await getAppArchivePath(appId, variantId, versionId, install.version.current_build);
                 const containerFilesPath = await install.wrapper.getContainerFilesPath();
                 await rm(containerFilesPath, { recursive: true, force: true });
