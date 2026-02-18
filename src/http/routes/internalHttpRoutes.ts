@@ -1,4 +1,4 @@
-import { ContainerPort, OGSHError } from "@open-game-server-host/backend-lib";
+import { ContainerPort, OGSHError, respond } from "@open-game-server-host/backend-lib";
 import { Response, Router } from "express";
 import { body, check, param } from "express-validator";
 import { ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
@@ -67,4 +67,35 @@ internalHttpRouter.post("/container/:containerId/ports", [
 internalHttpRouter.post("/stopallcontainers", (req, res) => {
     getContainerWrappers().forEach(wrapper => wrapper.stop());
     res.send();
+});
+
+internalHttpRouter.post("/container/:containerId/start", param("containerId").isString(), async (req, res) => {
+    getContainer(req.params!.containerId).start();
+    respond(res);
+});
+
+internalHttpRouter.post("/container/:containerId/stop", param("containerId").isString(), async (req, res) => {
+    getContainer(req.params!.containerId).stop();
+    respond(res);
+});
+
+internalHttpRouter.post("/container/:containerId/restart", param("containerId").isString(), async (req, res) => {
+    getContainer(req.params!.containerId).restart();
+    respond(res);
+});
+
+internalHttpRouter.post("/container/:containerId/kill", param("containerId").isString(), async (req, res) => {
+    getContainer(req.params!.containerId).kill();
+    respond(res);
+});
+
+interface ContainerCommandBody {
+    command: string;
+}
+internalHttpRouter.post("/container/:containerId/command", [
+    param("containerId").isString(),
+    body("command").isString()
+], async (req: BodyRequest<ContainerCommandBody>, res: Response) => {
+    getContainer(req.params.containerId).command(req.body.command);
+    respond(res);
 });
