@@ -1,7 +1,7 @@
-import { OGSHError } from "@open-game-server-host/backend-lib";
+import { ContainerPort, OGSHError } from "@open-game-server-host/backend-lib";
 import { Response, Router } from "express";
 import { body, check, param } from "express-validator";
-import { ContainerPort, ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
+import { ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
 import { BodyRequest } from "../httpServer";
 
 export const internalHttpRouter = Router();
@@ -54,10 +54,9 @@ internalHttpRouter.post("/container/:containerId/ports", [
     param("ports").isArray().customSanitizer((input, meta) => {
         for (const ports of (input as ContainerPort[])) {
             if (typeof ports !== "object") throw new OGSHError("general/unspecified");
-            const containerPort = +ports.containerPort;
-            if (!Number.isInteger(containerPort) || containerPort < 0 || containerPort > 65535) throw new OGSHError("general/unspecified");
-            const hostPort = +ports.hostPort;
-            if (!Number.isInteger(hostPort) || hostPort < 0 || hostPort > 65535) throw new OGSHError("general/unspecified");
+            const { container_port, host_port } = ports;
+            if (!Number.isInteger(container_port) || container_port < 0 || container_port > 65535) throw new OGSHError("general/unspecified");
+            if (!Number.isInteger(host_port) || host_port < 0 || host_port > 65535) throw new OGSHError("general/unspecified");
         }
     })
 ], (req: BodyRequest<PortsBody>, res: Response) => {

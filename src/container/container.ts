@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 export const containerEventEmitter = new EventEmitter();
 
-import { getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
+import { ContainerPort, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
 import path from "path";
@@ -50,10 +50,6 @@ export interface ContainerCreatePortMappingOptions {
 
 type Action = () => void | Promise<void>;
 
-export interface ContainerPort {
-    containerPort: number;
-    hostPort: number;
-}
 export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
@@ -99,11 +95,11 @@ function validateContainerPorts(ports: ContainerPort[]) {
         throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
     }
     for (const port of ports) {
-        if (!Number.isInteger(port.containerPort)) {
-            throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
+        if (!Number.isInteger(port.container_port)) {
+            throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'container_port'`);
         }
-        if (!Number.isInteger(port.hostPort)) {
-            throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
+        if (!Number.isInteger(port.host_port)) {
+            throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'host_port'`);
         }
     }
 }
@@ -337,12 +333,7 @@ export class ContainerWrapper {
         }
 
         const portMappings: ContainerCreatePortMappingOptions[] = [];
-        this.options.ports.forEach(port => {
-            portMappings.push({
-                container_port: port.containerPort,
-                host_port: port.hostPort
-            });
-        });
+        this.options.ports.forEach(port => portMappings.push(port));
 
         const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
