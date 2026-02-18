@@ -43,7 +43,7 @@ internalHttpRouter.post("/container/:containerId/image", [
     param("containerId").isString(),
     body("dockerImage").isString()
 ], async (req: BodyRequest<RuntimeBody>, res: Response) => {
-    getContainer(req.params.containerId).getOptions().dockerImage = req.body.dockerImage;
+    getContainer(req.params.containerId).getOptions().runtime = req.body.dockerImage;
     res.send();
 });
 
