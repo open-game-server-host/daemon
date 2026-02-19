@@ -1,5 +1,5 @@
 import { ContainerPort, OGSHError, respond } from "@open-game-server-host/backend-lib";
-import { Response, Router } from "express";
+import { Request, Response, Router } from "express";
 import { body, check, param } from "express-validator";
 import { ContainerWrapper, ContainerWrapperOptions, getContainerWrapper, getContainerWrappers, validateContainerApp } from "../../container/container";
 import { BodyRequest } from "../httpServer";
@@ -16,7 +16,8 @@ function getContainer(containerId: string): ContainerWrapper {
 
 // User has just purchased an app/game, create the container
 internalHttpRouter.post("/container/:containerId", param("containerId").isString(), async (req: BodyRequest<ContainerWrapperOptions>, res) => {
-    await ContainerWrapper.register(req.params.containerId, req.body);
+    const wrapper = await ContainerWrapper.register(req.params.containerId, req.body);
+    wrapper.install(req.body.app_id, req.body.variant_id, req.body.version_id);
     res.send();
 });
 
@@ -97,5 +98,12 @@ internalHttpRouter.post("/container/:containerId/command", [
     body("command").isString()
 ], async (req: BodyRequest<ContainerCommandBody>, res: Response) => {
     getContainer(req.params.containerId).command(req.body.command);
+    respond(res);
+});
+
+internalHttpRouter.post("/container/:containerId/terminate", [
+    param("containerId").isString()
+], async (req: Request, res: Response) => {
+    getContainer(req.params.containerId as string).terminate();
     respond(res);
 });

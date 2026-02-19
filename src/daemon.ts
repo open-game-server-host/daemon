@@ -3,8 +3,10 @@ const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync } from "node:fs";
+import { getDaemonContainers } from "./api";
 import { cleanupPartiallyDownloadedAppArchives, updateAppArchive } from "./apps/appArchiveCache";
 import { getDaemonConfig } from "./config/daemonConfig";
+import { ContainerWrapper } from "./container/container";
 import { initHttpServer } from "./http/httpServer";
 
 async function init() {
@@ -28,7 +30,17 @@ async function init() {
         }
     }
 
-    // TODO load this daemon's containers from the api
+    // TODO get actual daemon id from a config file or something
+    (await getDaemonContainers("1")).forEach(container => {
+        ContainerWrapper.register(container.id, {
+            app_id: container.app_id,
+            ports: container.ports,
+            runtime: container.runtime,
+            segments: container.segments,
+            variant_id: container.variant_id,
+            version_id: container.version_id
+        });
+    });
 
     await initHttpServer(logger);
 }

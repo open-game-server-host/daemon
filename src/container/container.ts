@@ -195,14 +195,14 @@ export class ContainerWrapper {
         })();
     }
 
-    static async register(id: string, options: ContainerWrapperOptions) {
+    static async register(id: string, options: ContainerWrapperOptions): Promise<ContainerWrapper> {
         const version = await validateContainerApp(options.app_id, options.variant_id, options.version_id);
         validateContainerSegments(options.segments);
         validateContainerDockerImage(version, options.runtime);
         validateContainerPorts(options.ports);
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
-        wrapper.install(options.app_id, options.variant_id, options.version_id);
+        return wrapper
     }
 
     private queueAction(action: Action) {
