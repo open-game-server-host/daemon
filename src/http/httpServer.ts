@@ -1,9 +1,8 @@
-import { expressErrorHandler, Logger } from "@open-game-server-host/backend-lib";
+import { expressErrorHandler, internalAuthMiddleware, Logger } from "@open-game-server-host/backend-lib";
 import express, { Request } from "express";
 import { createServer } from "node:http";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { wsServer } from "../ws/wsServer";
-import { internalAuthMiddleware } from "./auth/internalAuth";
 import { internalHttpRouter } from "./routes/internalHttpRoutes";
 
 export async function initHttpServer(logger: Logger) {
@@ -12,6 +11,7 @@ export async function initHttpServer(logger: Logger) {
     const router = express();
     router.use(express.json());
 
+    // TODO split this up into multiple routers: daemon, container, files, systemn
     router.use("/v1/internal", internalAuthMiddleware, internalHttpRouter);
 
     router.use(expressErrorHandler);
