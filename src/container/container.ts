@@ -84,9 +84,9 @@ function validateContainerSegments(segments: number) {
     }
 }
 
-function validateContainerDockerImage(version: Version, dockerImage: string) {
-    if (!version.supported_docker_images.includes(dockerImage)) {
-        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supported_docker_images}`);
+function validateContainerRuntime(version: Version, dockerImage: string) {
+    if (!version.supported_runtimes.includes(dockerImage)) {
+        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supported_runtimes}`);
     }
 }
 
@@ -198,7 +198,7 @@ export class ContainerWrapper {
     static async register(id: string, options: ContainerWrapperOptions): Promise<ContainerWrapper> {
         const version = await validateContainerApp(options.app_id, options.variant_id, options.version_id);
         validateContainerSegments(options.segments);
-        validateContainerDockerImage(version, options.runtime);
+        validateContainerRuntime(version, options.runtime);
         validateContainerPorts(options.ports);
         const wrapper = new ContainerWrapper(id, options);
         containerWrappersById.set(wrapper.getId(), wrapper);
@@ -245,10 +245,10 @@ export class ContainerWrapper {
         if (!version) {
             throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.app_id}' variant id '${this.options.variant_id}' version id '${this.options.version_id}'`);
         }
-        const dockerImage = version.supported_docker_images.includes(this.options.runtime) ? this.options.runtime : version.default_docker_image;
+        const runtime = version.supported_runtimes.includes(this.options.runtime) ? this.options.runtime : version.default_runtime;
         const globalConfig = await getGlobalConfig();
         const daemonConfig = await getDaemonConfig();
-        return `${globalConfig.docker_registry_url}/container-runtimes/${dockerImage}:${daemonConfig.runtime_images_branch}`;
+        return `${globalConfig.docker_registry_url}/container-runtimes/${runtime}:${daemonConfig.runtime_images_branch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -560,7 +560,7 @@ export class ContainerWrapper {
         this.options.app_id = appId;
         this.options.variant_id = variantId;
         this.options.version_id = versionId;
-        this.options.runtime = version.default_docker_image;
+        this.options.runtime = version.default_runtime;
         await queueContainerInstall(this, version);
 
         this.logger.info("Install finished");
