@@ -11,6 +11,7 @@ import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
+import { ContainerRegisterBody } from "../ws/routes/containerWsRoutes";
 import { queueContainerInstall } from "./containerInstaller";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
@@ -51,12 +52,12 @@ export interface ContainerCreatePortMappingOptions {
 type Action = () => void | Promise<void>;
 
 export interface ContainerWrapperOptions {
-    app_id: string;
-    variant_id: string;
-    version_id: string;
-    segments: number;
-    runtime: string;
+    appId: string;
+    variantId: string;
+    versionId: string;
     ports: ContainerPort[]; // container port : external port
+    runtime: string;
+    segments: number;
 }
 
 const stopReasons: {[code: number]: string} = {
@@ -168,9 +169,9 @@ export class ContainerWrapper {
         (async () => {
             const daemonConfig = await getDaemonConfig();
             const containerFilesPath = await this.getContainerFilesPath();
-            const version = await getVersion(this.options.app_id, this.options.variant_id, this.options.version_id);
+            const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
             if (!version) {
-                throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.app_id}' variant id '${this.options.variant_id}' version id '${this.options.version_id}' not found`);
+                throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`);
             }
             const storageMonitor = getStorageMonitor(getVersionRuntime(version));
             while (!this.terminated) {
@@ -195,14 +196,16 @@ export class ContainerWrapper {
         })();
     }
 
-    static async register(id: string, options: ContainerWrapperOptions): Promise<ContainerWrapper> {
-        const version = await validateContainerApp(options.app_id, options.variant_id, options.version_id);
+    static async register(id: string, options: ContainerRegisterBody): Promise<ContainerWrapper> {
+        const version = await validateContainerApp(options.appId, options.variantId, options.versionId);
         validateContainerSegments(options.segments);
-        validateContainerRuntime(version, options.runtime);
         validateContainerPorts(options.ports);
-        const wrapper = new ContainerWrapper(id, options);
+        const wrapper = new ContainerWrapper(id, {
+            ...options,
+            runtime: version.default_runtime
+        });
         containerWrappersById.set(wrapper.getId(), wrapper);
-        return wrapper
+        return wrapper;
     }
 
     private queueAction(action: Action) {
@@ -241,9 +244,9 @@ export class ContainerWrapper {
     }
 
     async getDockerImage(): Promise<string> {
-        const version = await getVersion(this.options.app_id, this.options.variant_id, this.options.version_id);
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         if (!version) {
-            throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.app_id}' variant id '${this.options.variant_id}' version id '${this.options.version_id}'`);
+            throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}'`);
         }
         const runtime = version.supported_runtimes.includes(this.options.runtime) ? this.options.runtime : version.default_runtime;
         const globalConfig = await getGlobalConfig();
@@ -302,9 +305,9 @@ export class ContainerWrapper {
 
     private async startAction() {
         this.logger.info("Starting", {
-            appId: this.options.app_id,
-            variantId: this.options.variant_id,
-            versionId: this.options.version_id
+            appId: this.options.appId,
+            variantId: this.options.variantId,
+            versionId: this.options.versionId
         });
 
         if (await this.isRunning()) {
@@ -323,9 +326,9 @@ export class ContainerWrapper {
         // Remove old container to use new runtime image
         await removeDockerContainer(this.getContainerId());
 
-        const app = await getApp(this.options.app_id);
-        const variant = await getVariant(this.options.app_id, this.options.variant_id);
-        const version = await getVersion(this.options.app_id, this.options.variant_id, this.options.version_id);
+        const app = await getApp(this.options.appId);
+        const variant = await getVariant(this.options.appId, this.options.variantId);
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         const environmentVariables = {
             ...app?.environment_variables,
             ...variant?.environment_variables,
@@ -348,7 +351,7 @@ export class ContainerWrapper {
                 },
                 {
                     container_folder: "/ogsh/startup_files",
-                    host_folder: await getStartupFilesPath(this.options.app_id, this.options.variant_id),
+                    host_folder: await getStartupFilesPath(this.options.appId, this.options.variantId),
                     readonly: false
                 }
             ],
@@ -401,18 +404,18 @@ export class ContainerWrapper {
             const reason = stopReasons[output?.StatusCode] || "unknown";
             this.logger.info("Stopped", {
                 reason,
-                appId: this.options.app_id,
-                variantId: this.options.variant_id,
-                versionId: this.options.version_id,
+                appId: this.options.appId,
+                variantId: this.options.variantId,
+                versionId: this.options.versionId,
                 build: version?.current_build
             });
         });
     }
 
     private async monitorContainer(container: Docker.Container, sessionStart: number = Date.now()) {
-        const version = await getVersion(this.options.app_id, this.options.variant_id, this.options.version_id);
+        const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         if (!version) {
-            throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.app_id}' variant id '${this.options.variant_id}' version id '${this.options.version_id}' not found`)
+            throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`)
         }
         const runtime = getVersionRuntime(version);
         const cpuMonitor = getCpuMonitor(runtime);
@@ -478,9 +481,9 @@ export class ContainerWrapper {
         }
         const daemonConfig = await getDaemonConfig();
         const container = await getDockerContainer(this.getContainerId());
-        const variant = await getVariant(this.options.app_id, this.options.variant_id);
+        const variant = await getVariant(this.options.appId, this.options.variantId);
         if (!variant) {
-            throw new OGSHError("app/variant-not-found", `failed to get stop command for app id '${this.options.app_id}' variant id '${this.options.variant_id}'`);
+            throw new OGSHError("app/variant-not-found", `failed to get stop command for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
         }
         if (variant.stop_command) {
             this.commandAction(variant.stop_command);
@@ -557,9 +560,9 @@ export class ContainerWrapper {
             }
         });
 
-        this.options.app_id = appId;
-        this.options.variant_id = variantId;
-        this.options.version_id = versionId;
+        this.options.appId = appId;
+        this.options.variantId = variantId;
+        this.options.versionId = versionId;
         this.options.runtime = version.default_runtime;
         await queueContainerInstall(this, version);
 
@@ -598,7 +601,9 @@ export class ContainerWrapper {
     }
 
     async updateOptions(options: Partial<ContainerWrapperOptions>) {
-        // TODO
+        for (const [key, value] of Object.entries(options)) {
+            (this.options as any)[key] = value; // TODO validate this works
+        }
     }
 
     log(msg: string) {
