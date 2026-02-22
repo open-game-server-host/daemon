@@ -1,4 +1,5 @@
 import { formatErrorResponseBody, Logger, OGSHError, WsMsg, WsRouter } from "@open-game-server-host/backend-lib";
+import { WebSocket } from "ws";
 import { getDaemonApiKey, getDaemonId } from "../env";
 import { containerWsRouter } from "./routes/containerWsRoutes";
 import { systemWsRouter } from "./routes/systemWsRoutes";

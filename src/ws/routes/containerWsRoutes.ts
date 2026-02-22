@@ -1,4 +1,5 @@
 import { ContainerPort, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
+import { WebSocket } from "ws";
 import { ContainerWrapper, getContainerWrapper } from "../../container/container";
 
 export const containerWsRouter = new WsRouter("container");
