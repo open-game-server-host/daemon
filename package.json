@@ -13,8 +13,6 @@
   "dependencies": {
     "@open-game-server-host/backend-lib": "^1.0.61",
     "dockerode": "^4.0.9",
-    "express": "^5.2.1",
-    "express-validator": "^7.3.1",
     "fast-folder-size": "^2.4.0",
     "ws": "^8.19.0"
   },
