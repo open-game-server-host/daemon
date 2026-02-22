@@ -1,6 +1,7 @@
 import { Container, getApiConfig, OGSHError } from "@open-game-server-host/backend-lib";
+import { getDaemonApiKey, getDaemonId } from "./env";
 
-async function sendApiRequest<T>(url: string, path: string, body: any = {}, authorization: string = ""): Promise<T> {
+async function sendApiRequest<T>(url: string, path: string, body: any = {}): Promise<T> {
     if (url.endsWith("/")) {
         url = url.substring(0, url.length - 1);
     }
@@ -12,7 +13,7 @@ async function sendApiRequest<T>(url: string, path: string, body: any = {}, auth
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            authorization,
+            authorization: getDaemonApiKey(),
             "content-type": "application/json"
         },
         body: JSON.stringify(body)
@@ -33,7 +34,7 @@ async function sendApiRequest<T>(url: string, path: string, body: any = {}, auth
     return (await response.json()).data as T;
 }
 
-export async function getDaemonContainers(daemonId: string): Promise<Container[]> {
+export async function getDaemonContainers(): Promise<Container[]> {
     const { url } = await getApiConfig();
-    return sendApiRequest<Container[]>(url, `/v1/daemon/${daemonId}/containers`, undefined, "TODO");
+    return sendApiRequest<Container[]>(url, `/v1/daemon/${getDaemonId()}/containers`);
 }
