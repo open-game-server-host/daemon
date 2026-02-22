@@ -44,7 +44,7 @@ export async function connectToApi() {
                     const router = routers.get(json.route);
                     if (!router) throw new OGSHError("general/unspecified", `router '${json.route}' not found`);
 
-                    router.call(json.action, ws, json.body, locals);
+                    router.call(json.action, ws, json.body, locals, logger);
                 } catch (error) {
                     logger.error(error as OGSHError);
                     ws.close();
