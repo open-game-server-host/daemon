@@ -57,13 +57,8 @@ async function startJstat(wrapper: ContainerWrapper, container: Docker.Container
             AttachStdin: true,
             AttachStdout: true,
             Cmd: [
-                "nice",
-                "-n",
-                "19",
-                "jstat",
-                "-gc",
-                `${jvmPid}`,
-                `${daemonConfig.websocket_event_push_frequency_ms}`
+                "nice", "-n", "19",
+                "jstat", "-gc", `${jvmPid}`, `${daemonConfig.websocketEventPushFrequencyMs}`
             ]
         }).then(exec => {
             res(exec.start({

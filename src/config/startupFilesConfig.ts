@@ -18,9 +18,9 @@ export async function updateStartupFiles() {
         throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
-    rmSync(daemonConfig.startup_files_path, { recursive: true, force: true });
-    mkdirSync(daemonConfig.startup_files_path, { recursive: true });
-    const fileStream = createWriteStream(path.resolve(`${daemonConfig.startup_files_path}/startup_files.tar`), { flags: 'wx' });
+    rmSync(daemonConfig.startupFilesPath, { recursive: true, force: true });
+    mkdirSync(daemonConfig.startupFilesPath, { recursive: true });
+    const fileStream = createWriteStream(path.resolve(`${daemonConfig.startupFilesPath}/startup_files.tar`), { flags: 'wx' });
     const writeStream = Readable.fromWeb(response.body as any).pipe(fileStream);
     await new Promise<void>((res, rej) => {
         writeStream.on("error", rej);
@@ -51,16 +51,16 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     }
     const daemonConfig = await getDaemonConfig();
 
-    if (!existsSync(daemonConfig.startup_files_path)) {
-        throw new OGSHError("app/startup-files-not-found", `path: '${daemonConfig.startup_files_path}'`);
+    if (!existsSync(daemonConfig.startupFilesPath)) {
+        throw new OGSHError("app/startup-files-not-found", `path: '${daemonConfig.startupFilesPath}'`);
     }
 
-    let startupFilesPath = `${daemonConfig.startup_files_path}/${appId}/${variantId}`;
+    let startupFilesPath = `${daemonConfig.startupFilesPath}/${appId}/${variantId}`;
     if (existsSync(startupFilesPath)) {
         return path.resolve(startupFilesPath);
     }
 
-    startupFilesPath = `${daemonConfig.startup_files_path}/${appId}`;
+    startupFilesPath = `${daemonConfig.startupFilesPath}/${appId}`;
     if (existsSync(startupFilesPath)) {
         return path.resolve(startupFilesPath);
     }

@@ -9,13 +9,13 @@ import { connectToApi } from "./ws/wsClient";
 
 async function init() {
     const daemonConfig = await getDaemonConfig();
-    if (!existsSync(daemonConfig.app_archives_path)) {
-        logger.info(`Creating app archives path (${daemonConfig.app_archives_path})`);
-        mkdirSync(daemonConfig.app_archives_path, { recursive: true });
+    if (!existsSync(daemonConfig.appArchivesPath)) {
+        logger.info(`Creating app archives path (${daemonConfig.appArchivesPath})`);
+        mkdirSync(daemonConfig.appArchivesPath, { recursive: true });
     }
-    if (!existsSync(daemonConfig.container_files_path)) {
-        logger.info(`Creating container files path (${daemonConfig.container_files_path})`);
-        mkdirSync(daemonConfig.container_files_path, { recursive: true });
+    if (!existsSync(daemonConfig.containerFilesPath)) {
+        logger.info(`Creating container files path (${daemonConfig.containerFilesPath})`);
+        mkdirSync(daemonConfig.containerFilesPath, { recursive: true });
     }
 
     await cleanupPartiallyDownloadedAppArchives(logger);

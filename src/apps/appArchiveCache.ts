@@ -18,7 +18,7 @@ const progressCallbacks = new Map<string, ((progress: ArchiveDownloadProgress) =
 
 export async function cleanupPartiallyDownloadedAppArchives(logger: Logger) {
     const daemonConfig = await getDaemonConfig();
-    readdirSync(daemonConfig.app_archives_path).forEach(file => {
+    readdirSync(daemonConfig.appArchivesPath).forEach(file => {
         if (file.endsWith(".downloading")) {
             logger.info(`Removing partially downloaded archive`, {
                 file

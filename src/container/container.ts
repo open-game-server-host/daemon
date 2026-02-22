@@ -193,7 +193,7 @@ export class ContainerWrapper {
                     }
                 })();
 
-                await sleep(daemonConfig.websocket_event_push_frequency_ms);
+                await sleep(daemonConfig.websocketEventPushFrequencyMs);
             }
         })();
     }
@@ -232,7 +232,7 @@ export class ContainerWrapper {
 
     async getContainerFilesPath(): Promise<string> {
         const daemonConfig = await getDaemonConfig();
-        return path.resolve(`${daemonConfig.container_files_path}/${this.id}`); // Need to use absolute path to pass into a docker container
+        return path.resolve(`${daemonConfig.containerFilesPath}/${this.id}`); // Need to use absolute path to pass into a docker container
     }
 
     private async getContainerResources(): Promise<{
@@ -254,7 +254,7 @@ export class ContainerWrapper {
         const runtime = version.supportedRuntimes.includes(this.options.runtime) ? this.options.runtime : version.defaultRuntime;
         const globalConfig = await getGlobalConfig();
         const daemonConfig = await getDaemonConfig();
-        return `${globalConfig.dockerRegistryUrl}/container-runtimes/${runtime}:${daemonConfig.runtime_images_branch}`;
+        return `${globalConfig.dockerRegistryUrl}/container-runtimes/${runtime}:${daemonConfig.runtimeImagesBranch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -467,7 +467,7 @@ export class ContainerWrapper {
             follow: true,
             stdout: true,
             stderr: true,
-            tail: daemonConfig.previous_logs_to_show_on_connect
+            tail: daemonConfig.previousLogsToShowOnConnect
         }).then(stream => {
             stream.on("data", (data: Buffer) => {
                 let message = data.toString();
@@ -498,7 +498,7 @@ export class ContainerWrapper {
         } else {
             container.stop({
                 // TODO might need to set signal?
-                t: daemonConfig.stop_seconds_timeout
+                t: daemonConfig.stopSecondsTimeout
             });
         }
         await new Promise<void>(res => {
@@ -596,8 +596,8 @@ export class ContainerWrapper {
         for (const id of this.connectedWebsockets.values()) {
             if (id === userId) {
                 connections++;
-                if (connections >= daemonConfig.max_websocket_connections_per_container_per_user) {
-                    throw new OGSHError("ws/connection-limit", `user id '${userId}' has reached max connections to container id '${this.id}' (limit ${daemonConfig.max_websocket_connections_per_container_per_user})`);
+                if (connections >= daemonConfig.maxWebsocketConnectionsPerContainerPerUser) {
+                    throw new OGSHError("ws/connection-limit", `user id '${userId}' has reached max connections to container id '${this.id}' (limit ${daemonConfig.maxWebsocketConnectionsPerContainerPerUser})`);
                 }
             }
         }
