@@ -83,7 +83,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {
 		const parsedEnvVariables: string[] = [];
-        Object.entries(options.environment_variables).forEach(([key, value]) => {
+        Object.entries(options.environmentVariables).forEach(([key, value]) => {
             parsedEnvVariables.push(`${key}=${value}`);
         });
 
@@ -94,30 +94,40 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
 			HostConfig: {
-				Memory: getMb(options.memory_mb),
-				MemorySwap: getMb(options.memory_mb) + getMb(500),
-				NanoCpus: Math.floor(options.max_cpus * 1_000_000_000),
+				Memory: getMb(options.memoryMb),
+				MemorySwap: getMb(options.memoryMb) + getMb(500),
+				NanoCpus: Math.floor(options.maxCpus * 1_000_000_000),
 				PortBindings: {},
 				Binds: [],
-				ReadonlyRootfs: options.container_read_only || false
+				ReadonlyRootfs: options.containerReadOnly || false
 			},
 			ExposedPorts: {}
 		};
 
-		if (options.bind_mounts) {
-			options.bind_mounts.forEach(options => {
+		if (options.bindMounts) {
+			options.bindMounts.forEach(options => {
 				let readonly = options.readonly ? "ro" : "rw";
 				dockerCreateOptions.HostConfig.Binds.push(`${options.host_folder}:${options.container_folder}:${readonly}`);
 			});
 		}
 
-		if (options.port_mappings) {
-			for (const entry of options.port_mappings) {
-				dockerCreateOptions.ExposedPorts[`${entry.container_port}/tcp`] = {};
-				dockerCreateOptions.ExposedPorts[`${entry.container_port}/udp`] = {};
+		if (options.ipv4PortMappings) {
+			for (const entry of options.ipv4PortMappings) {
+				dockerCreateOptions.ExposedPorts[`${entry.containerPort}/tcp`] = {};
+				dockerCreateOptions.ExposedPorts[`${entry.containerPort}/udp`] = {};
 
-				dockerCreateOptions.HostConfig.PortBindings[`${entry.container_port}/tcp`] = [{ HostPort: `${entry.host_port}` }];
-				dockerCreateOptions.HostConfig.PortBindings[`${entry.container_port}/udp`] = [{ HostPort: `${entry.host_port}` }];
+				dockerCreateOptions.HostConfig.PortBindings[`${entry.containerPort}/tcp`] = [{ HostIp: "0.0.0.0", HostPort: `${entry.hostPort}` }];
+				dockerCreateOptions.HostConfig.PortBindings[`${entry.containerPort}/udp`] = [{ HostIp: "0.0.0.0", HostPort: `${entry.hostPort}` }];
+			}
+		}
+
+		if (options.ipv6PortMappings) {
+			for (const entry of options.ipv6PortMappings) {
+				dockerCreateOptions.ExposedPorts[`${entry.containerPort}/tcp`] = {};
+				dockerCreateOptions.ExposedPorts[`${entry.containerPort}/udp`] = {};
+
+				dockerCreateOptions.HostConfig.PortBindings[`${entry.containerPort}/tcp`] = [{ HostIp: "::/0", HostPort: `${entry.hostPort}` }];
+				dockerCreateOptions.HostConfig.PortBindings[`${entry.containerPort}/udp`] = [{ HostIp: "::/0", HostPort: `${entry.hostPort}` }];
 			}
 		}
 

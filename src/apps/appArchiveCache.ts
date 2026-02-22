@@ -30,7 +30,7 @@ export async function cleanupPartiallyDownloadedAppArchives(logger: Logger) {
 
 export async function isAppArchiveLatestBuild(appId: string, variantId: string, versionId: string, build: number): Promise<boolean> {
     const version = await getVersion(appId, variantId, versionId);
-    return version?.current_build === build;
+    return version?.currentBuild === build;
 }
 
 export async function updateAppArchive(appId: string, variantId: string, versionId: string, build: number, logger: Logger, progressCallback?: (progress: ArchiveDownloadProgress) => void) {
@@ -74,7 +74,7 @@ export async function updateAppArchive(appId: string, variantId: string, version
                     });
                     const archivePath = await getAppArchivePath(appId, variantId, versionId, build);
                     const globalConfig = await getGlobalConfig();
-                    const archiveUrl = `http://${globalConfig.app_archive_url}/v1/archive/${appId}/${variantId}/${versionId}/${build}`;
+                    const archiveUrl = `http://${globalConfig.appArchiveUrl}/v1/archive/${appId}/${variantId}/${versionId}/${build}`;
                     let lastProgress: DownloadProgress;
                     let success = false;
                     await downloadToFile(archiveUrl, archivePath, {

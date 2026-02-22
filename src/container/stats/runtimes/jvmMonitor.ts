@@ -44,7 +44,7 @@ export async function jvmMemoryMonitor(wrapper: ContainerWrapper, memory?: Memor
     }
     const globalConfig = await getGlobalConfig();
     return {
-        total: (globalConfig.segment.memory_mb * wrapper.getOptions().segments) * 1000000,
+        total: (globalConfig.segment.memoryMb * wrapper.getOptions().segments) * 1000000,
         used: usedMemory.get(wrapper) || 0
     };
 }

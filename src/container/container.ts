@@ -27,15 +27,16 @@ export function getContainerWrappers(): ContainerWrapper[] {
 }
 
 export interface ContainerCreateOptions {
-    environment_variables: {[key: string]: string};
-	max_cpus: number;
-	memory_mb: number;
-	bind_mounts?: ContainerCreateBindMountOptions[];
-	port_mappings?: ContainerCreatePortMappingOptions[];
+    environmentVariables: {[key: string]: string};
+	maxCpus: number;
+	memoryMb: number;
+	bindMounts?: ContainerCreateBindMountOptions[];
+	ipv4PortMappings?: ContainerCreatePortMappingOptions[];
+    ipv6PortMappings?: ContainerCreatePortMappingOptions[];
 	image: string;
 	name: string;
 	network?: Docker.Network | string;
-	container_read_only?: boolean;
+	containerReadOnly?: boolean;
 }
 
 export interface ContainerCreateBindMountOptions {
@@ -45,8 +46,8 @@ export interface ContainerCreateBindMountOptions {
 }
 
 export interface ContainerCreatePortMappingOptions {
-	container_port: number;
-	host_port: number;
+	containerPort: number;
+	hostPort: number;
 }
 
 type Action = () => void | Promise<void>;
@@ -55,7 +56,8 @@ export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
     versionId: string;
-    ports: ContainerPort[]; // container port : external port
+    ipv4Ports: ContainerPort[];
+    ipv6Ports: ContainerPort[];
     runtime: string;
     segments: number;
 }
@@ -86,8 +88,8 @@ function validateContainerSegments(segments: number) {
 }
 
 function validateContainerRuntime(version: Version, dockerImage: string) {
-    if (!version.supported_runtimes.includes(dockerImage)) {
-        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supported_runtimes}`);
+    if (!version.supportedRuntimes.includes(dockerImage)) {
+        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supportedRuntimes}`);
     }
 }
 
@@ -96,10 +98,10 @@ function validateContainerPorts(ports: ContainerPort[]) {
         throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
     }
     for (const port of ports) {
-        if (!Number.isInteger(port.container_port)) {
+        if (!Number.isInteger(port.containerPort)) {
             throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'container_port'`);
         }
-        if (!Number.isInteger(port.host_port)) {
+        if (!Number.isInteger(port.hostPort)) {
             throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'host_port'`);
         }
     }
@@ -199,10 +201,11 @@ export class ContainerWrapper {
     static async register(id: string, options: ContainerRegisterBody): Promise<ContainerWrapper> {
         const version = await validateContainerApp(options.appId, options.variantId, options.versionId);
         validateContainerSegments(options.segments);
-        validateContainerPorts(options.ports);
+        validateContainerPorts(options.ipv4Ports);
+        validateContainerPorts(options.ipv6Ports);
         const wrapper = new ContainerWrapper(id, {
             ...options,
-            runtime: version.default_runtime
+            runtime: version.defaultRuntime
         });
         containerWrappersById.set(wrapper.getId(), wrapper);
         return wrapper;
@@ -238,8 +241,8 @@ export class ContainerWrapper {
     }> {
         const globalConfig = await getGlobalConfig();
         return {
-            max_cpus: Math.min(globalConfig.segment.max_cpus * this.options.segments, maxCpus),
-            memory_mb: globalConfig.segment.memory_mb * this.options.segments,
+            max_cpus: Math.min(globalConfig.segment.maxCpus * this.options.segments, maxCpus),
+            memory_mb: globalConfig.segment.memoryMb * this.options.segments,
         }
     }
 
@@ -248,10 +251,10 @@ export class ContainerWrapper {
         if (!version) {
             throw new OGSHError("app/variant-not-found", `failed to get runtime image for app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}'`);
         }
-        const runtime = version.supported_runtimes.includes(this.options.runtime) ? this.options.runtime : version.default_runtime;
+        const runtime = version.supportedRuntimes.includes(this.options.runtime) ? this.options.runtime : version.defaultRuntime;
         const globalConfig = await getGlobalConfig();
         const daemonConfig = await getDaemonConfig();
-        return `${globalConfig.docker_registry_url}/container-runtimes/${runtime}:${daemonConfig.runtime_images_branch}`;
+        return `${globalConfig.dockerRegistryUrl}/container-runtimes/${runtime}:${daemonConfig.runtime_images_branch}`;
     }
 
     async isRunning(): Promise<boolean> {
@@ -319,7 +322,7 @@ export class ContainerWrapper {
         // Validate and update runtime image
         const globalConfig = await getGlobalConfig();
         const fullDockerImage = await this.getDockerImage();
-        await pullDockerImage(globalConfig.docker_registry_url, fullDockerImage, this.logger);
+        await pullDockerImage(globalConfig.dockerRegistryUrl, fullDockerImage, this.logger);
 
         // TODO run auto-patcher
 
@@ -330,21 +333,23 @@ export class ContainerWrapper {
         const variant = await getVariant(this.options.appId, this.options.variantId);
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         const environmentVariables = {
-            ...app?.environment_variables,
-            ...variant?.environment_variables,
-            ...version?.environment_variables
+            ...app?.environmentVariables,
+            ...variant?.environmentVariables,
+            ...version?.environmentVariables
         }
 
-        const portMappings: ContainerCreatePortMappingOptions[] = [];
-        this.options.ports.forEach(port => portMappings.push(port));
+        const ipv4PortMappings: ContainerCreatePortMappingOptions[] = [];
+        const ipv6PortMappings: ContainerCreatePortMappingOptions[] = [];
+        this.options.ipv4Ports.forEach(port => ipv4PortMappings.push(port));
+        this.options.ipv6Ports.forEach(port => ipv6PortMappings.push(port));
 
         const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
-            environment_variables: environmentVariables,
+            environmentVariables: environmentVariables,
             image: fullDockerImage,
             name: this.getContainerId(),
-            bind_mounts: [
+            bindMounts: [
                 {
                     container_folder: "/ogsh/files",
                     host_folder: containerFilesPath
@@ -355,7 +360,10 @@ export class ContainerWrapper {
                     readonly: false
                 }
             ],
-            port_mappings: portMappings
+            ipv4PortMappings,
+            ipv6PortMappings,
+            maxCpus: globalConfig.segment.maxCpus * this.options.segments,
+            memoryMb: globalConfig.segment.memoryMb * this.options.segments
         });
 
         // TODO sanitise configs
@@ -407,7 +415,7 @@ export class ContainerWrapper {
                 appId: this.options.appId,
                 variantId: this.options.variantId,
                 versionId: this.options.versionId,
-                build: version?.current_build
+                build: version?.currentBuild
             });
         });
     }
@@ -485,8 +493,8 @@ export class ContainerWrapper {
         if (!variant) {
             throw new OGSHError("app/variant-not-found", `failed to get stop command for app id '${this.options.appId}' variant id '${this.options.variantId}'`);
         }
-        if (variant.stop_command) {
-            this.commandAction(variant.stop_command);
+        if (variant.stopCommand) {
+            this.commandAction(variant.stopCommand);
         } else {
             container.stop({
                 // TODO might need to set signal?
@@ -552,7 +560,7 @@ export class ContainerWrapper {
 
         // Make sure app archive is downloaded
         let percent = 0;
-        await updateAppArchive(appId, variantId, versionId, version.current_build, this.logger, progress => {
+        await updateAppArchive(appId, variantId, versionId, version.currentBuild, this.logger, progress => {
             const newPercent = Math.floor(100 / progress.bytesTotal * progress.bytesProcessed);
             if (percent !== newPercent) {
                 percent = newPercent;
@@ -563,7 +571,7 @@ export class ContainerWrapper {
         this.options.appId = appId;
         this.options.variantId = variantId;
         this.options.versionId = versionId;
-        this.options.runtime = version.default_runtime;
+        this.options.runtime = version.defaultRuntime;
         await queueContainerInstall(this, version);
 
         this.logger.info("Install finished");

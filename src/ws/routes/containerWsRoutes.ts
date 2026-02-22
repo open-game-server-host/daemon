@@ -32,22 +32,23 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppBody, l
 }
 
 interface ContainerPortsBody extends ContainerBody {
-    ports: ContainerPort[];
+    ipv4Ports: ContainerPort[];
+    ipv6Ports: ContainerPort[];
 }
 function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsBody, locals: ContainerLocals) {
     validateContainerBody(ws, body, locals);
-    if (!Array.isArray(body.ports)) throw new OGSHError("general/unspecified", `'ports' field must be an array`);
-    for (const ports of body.ports) {
-        if (!Number.isInteger(ports.container_port)) throw new OGSHError("general/unspecified", `'container_port' must be an integer`);
-        if (!Number.isInteger(ports.host_port)) throw new OGSHError("general/unspecified", `'host_port' must be an integer`);
+    if (!Array.isArray(body.ipv4Ports)) throw new OGSHError("general/unspecified", `'ipv4Ports' field must be an array`);
+    if (!Array.isArray(body.ipv6Ports)) throw new OGSHError("general/unspecified", `'ipv6Ports' field must be an array`);
+    for (const ports of ([] as ContainerPort[]).concat(body.ipv4Ports).concat(body.ipv6Ports)) {
+        if (!Number.isInteger(ports.containerPort)) throw new OGSHError("general/unspecified", `'container_port' must be an integer`);
+        if (!Number.isInteger(ports.hostPort)) throw new OGSHError("general/unspecified", `'host_port' must be an integer`);
     }
 }
 
-export interface ContainerRegisterBody extends ContainerBody {
+export interface ContainerRegisterBody extends ContainerPortsBody {
     appId: string;
     variantId: string;
     versionId: string;
-    ports: ContainerPort[];
     segments: number;
 }
 async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterBody, locals: any) {
@@ -102,7 +103,7 @@ async function validateContainerRuntimeBody(ws: WebSocket, body: ContainerRuntim
     const { appId, variantId, versionId } = locals.wrapper.getOptions();
     const version = await getVersion(appId, variantId, versionId);
     if (!version) throw new OGSHError("app/version-not-found", `app invalid for container id '${body.containerId}', app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
-    if (!version.supported_runtimes.includes(body.runtime)) throw new OGSHError("general/unspecified", `runtime invalid for container id '${body.containerId}' app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
+    if (!version.supportedRuntimes.includes(body.runtime)) throw new OGSHError("general/unspecified", `runtime invalid for container id '${body.containerId}' app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
 }
 containerWsRouter.register("runtime", validateContainerRuntimeBody, (ws, body: ContainerRuntimeBody, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
@@ -112,6 +113,7 @@ containerWsRouter.register("runtime", validateContainerRuntimeBody, (ws, body: C
 
 containerWsRouter.register("ports", validateContainerPortsBody, (ws, body: ContainerPortsBody, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
-        ports: body.ports
+        ipv4Ports: body.ipv4Ports,
+        ipv6Ports: body.ipv6Ports
     });
 });

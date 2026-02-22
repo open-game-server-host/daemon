@@ -29,7 +29,7 @@ export async function defaultContainerCpuMonitor(wrapper: ContainerWrapper, tota
 
 export async function defaultContainerMemoryMonitor(wrapper: ContainerWrapper, memory?: MemoryStats): Promise<ContainerMemory> {
     const globalConfig = await getGlobalConfig();
-    const total = globalConfig.segment.memory_mb * wrapper.getOptions().segments * 1_000_000;
+    const total = globalConfig.segment.memoryMb * wrapper.getOptions().segments * 1_000_000;
     if (!memory) {
         return {
             total,
@@ -66,7 +66,7 @@ export async function defaultContainerNetworkMonitor(wrapper: ContainerWrapper, 
 
 export async function defaultContainerStorageMonitor(wrapper: ContainerWrapper, containerFilesPath: string): Promise<ContainerStorage> {
     const globalConfig = await getGlobalConfig();
-    const total = (globalConfig.segment.storage_gb * wrapper.getOptions().segments) * 1_000_000_000;
+    const total = (globalConfig.segment.storageGb * wrapper.getOptions().segments) * 1_000_000_000;
 
     if (!existsSync(containerFilesPath)) {
         return {
