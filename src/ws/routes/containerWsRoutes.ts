@@ -8,22 +8,21 @@ interface ContainerLocals {
     wrapper: ContainerWrapper;
 }
 
-interface ContainerBody {
+interface ContainerIdBody {
     containerId: string;
 }
-function validateContainerBody(ws: WebSocket, body: ContainerBody, locals: ContainerLocals) {
+function validateContainerIdBody(ws: WebSocket, body: ContainerIdBody, locals: ContainerLocals) {
     const wrapper = getContainerWrapper(body.containerId);
     if (!wrapper) throw new OGSHError("container/not-found", `container id '${body.containerId}' not registered`);
     locals.wrapper = wrapper;
 }
 
-interface ContainerAppBody extends ContainerBody {
+interface ContainerAppBody extends ContainerIdBody {
     appId: string;
     variantId: string;
     versionId: string;
 }
 async function validateContainerAppBody(ws: WebSocket, body: ContainerAppBody, locals: ContainerLocals) {
-    validateContainerBody(ws, body, locals);
     if (typeof body.appId !== "string") throw new OGSHError("general/unspecified", `'appId' must be a string`);
     if (typeof body.variantId !== "string") throw new OGSHError("general/unspecified", `'variantId' must be a string`);
     if (typeof body.versionId !== "string") throw new OGSHError("general/unspecified", `'versionId' must be a string`);
@@ -31,12 +30,11 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppBody, l
     if (!version) throw new OGSHError("app/version-not-found", `could not find app id '${body.appId}' variant id '${body.variantId}' version id '${body.versionId}'`);
 }
 
-interface ContainerPortsBody extends ContainerBody {
+interface ContainerPortsBody extends ContainerIdBody {
     ipv4Ports: ContainerPort[];
     ipv6Ports: ContainerPort[];
 }
 function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsBody, locals: ContainerLocals) {
-    validateContainerBody(ws, body, locals);
     if (!Array.isArray(body.ipv4Ports)) throw new OGSHError("general/unspecified", `'ipv4Ports' field must be an array`);
     if (!Array.isArray(body.ipv6Ports)) throw new OGSHError("general/unspecified", `'ipv6Ports' field must be an array`);
     for (const ports of ([] as ContainerPort[]).concat(body.ipv4Ports).concat(body.ipv6Ports)) {
@@ -53,65 +51,61 @@ export interface ContainerRegisterBody extends ContainerPortsBody {
 }
 async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterBody, locals: any) {
     if (typeof body.containerId !== "string") throw new OGSHError("general/unspecified", `'containerId' must be a string`);
-    validateContainerPortsBody(ws, body, locals);
-    await validateContainerAppBody(ws, body, locals);
 }
-containerWsRouter.register("register", validateContainerRegisterBody, async (ws, body: ContainerRegisterBody, locals: any) => {
+containerWsRouter.register("register", validateContainerRegisterBody, validateContainerPortsBody, async (ws, body: ContainerRegisterBody, locals: any) => {
     await ContainerWrapper.register(body.containerId, body);
 });
 
-containerWsRouter.register("start", validateContainerBody, (ws, body: ContainerBody, locals: ContainerLocals) => {
+containerWsRouter.register("start", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
     locals.wrapper.start();
 });
 
-containerWsRouter.register("stop", validateContainerBody, (ws, body: ContainerBody, locals: ContainerLocals) => {
+containerWsRouter.register("stop", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
     locals.wrapper.stop();
 });
 
-containerWsRouter.register("restart", validateContainerBody, (ws, body: ContainerBody, locals: ContainerLocals) => {
+containerWsRouter.register("restart", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
     locals.wrapper.restart();
 });
 
-containerWsRouter.register("kill", validateContainerBody, (ws, body: ContainerBody, locals: ContainerLocals) => {
+containerWsRouter.register("kill", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
     locals.wrapper.kill();
 });
 
-interface ContainerCommandBody extends ContainerBody {
+interface ContainerCommandBody extends ContainerIdBody {
     command: string;
 }
 function validateContainerCommandBody(ws: WebSocket, body: ContainerCommandBody, locals: ContainerLocals) {
-    validateContainerBody(ws, body, locals);
     if (typeof body.command !== "string") throw new OGSHError("general/unspecified", `'command' field must be a string`);
 }
-containerWsRouter.register("command", validateContainerCommandBody, (ws, body: ContainerCommandBody, locals: ContainerLocals) => {
+containerWsRouter.register("command", validateContainerIdBody, validateContainerCommandBody, (ws, body: ContainerCommandBody, locals: ContainerLocals) => {
     locals.wrapper.command(body.command);
 });
 
-containerWsRouter.register("install", validateContainerAppBody, (ws, body: ContainerAppBody, locals: ContainerLocals) => {
+containerWsRouter.register("install", validateContainerIdBody, validateContainerAppBody, (ws, body: ContainerAppBody, locals: ContainerLocals) => {
     locals.wrapper.install(body.appId, body.variantId, body.versionId);
 });
 
-containerWsRouter.register("remove", validateContainerBody, (ws, body: ContainerBody, locals: ContainerLocals) => {
+containerWsRouter.register("remove", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
     locals.wrapper.terminate();
 });
 
-interface ContainerRuntimeBody extends ContainerBody {
+interface ContainerRuntimeBody extends ContainerIdBody {
     runtime: string;
 }
 async function validateContainerRuntimeBody(ws: WebSocket, body: ContainerRuntimeBody, locals: ContainerLocals) {
-    validateContainerBody(ws, body, locals);
     const { appId, variantId, versionId } = locals.wrapper.getOptions();
     const version = await getVersion(appId, variantId, versionId);
     if (!version) throw new OGSHError("app/version-not-found", `app invalid for container id '${body.containerId}', app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
     if (!version.supportedRuntimes.includes(body.runtime)) throw new OGSHError("general/unspecified", `runtime invalid for container id '${body.containerId}' app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
 }
-containerWsRouter.register("runtime", validateContainerRuntimeBody, (ws, body: ContainerRuntimeBody, locals: ContainerLocals) => {
+containerWsRouter.register("runtime", validateContainerIdBody, validateContainerRuntimeBody, (ws, body: ContainerRuntimeBody, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
         runtime: body.runtime
     });
 });
 
-containerWsRouter.register("ports", validateContainerPortsBody, (ws, body: ContainerPortsBody, locals: ContainerLocals) => {
+containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsBody, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
         ipv4Ports: body.ipv4Ports,
         ipv6Ports: body.ipv6Ports
