@@ -1,17 +1,16 @@
 import EventEmitter from "events";
 export const containerEventEmitter = new EventEmitter();
 
-import { ContainerPort, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
+import { ContainerPort, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
 import path from "path";
 import Stream from "stream";
-import { WebSocket } from "ws";
 import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
-import { ContainerRegisterBody } from "../ws/routes/containerWsRoutes";
+import { sendContainerLogsAndStats } from "../ws/wsClient";
 import { queueContainerInstall } from "./containerInstaller";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
@@ -48,6 +47,11 @@ export interface ContainerCreateBindMountOptions {
 export interface ContainerCreatePortMappingOptions {
 	containerPort: number;
 	hostPort: number;
+}
+
+export interface ContainerLogsAndStats {
+    stats: ContainerStats;
+    logs: string[];
 }
 
 type Action = () => void | Promise<void>;
@@ -111,7 +115,6 @@ const maxCpus = os.cpus().length;
 
 export class ContainerWrapper {
     private readonly logger;
-    private readonly connectedWebsockets = new Map<WebSocket, string>();
 
     private actionQueue: Action[] = [];
     private terminated = false;
@@ -179,26 +182,20 @@ export class ContainerWrapper {
             while (!this.terminated) {
                 this.mostRecentStats.timestamp = Date.now();
                 this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
-                const events = {
+                const logsAndStats: ContainerLogsAndStats = {
                     logs: this.pendingLogs,
                     stats: this.mostRecentStats
                 }
                 this.pendingLogs = [];
 
-                // Send websocket messages in an async function so this loop is more in sync with websocket_event_push_frequency_ms
-                (async () => {
-                    const jsonString = JSON.stringify(events);
-                    for (const ws of this.connectedWebsockets.keys()) {
-                        ws.send(jsonString);
-                    }
-                })();
+                sendContainerLogsAndStats(this.id, logsAndStats);
 
                 await sleep(daemonConfig.websocketEventPushFrequencyMs);
             }
         })();
     }
 
-    static async register(id: string, options: ContainerRegisterBody): Promise<ContainerWrapper> {
+    static async register(id: string, options: ContainerRegisterData): Promise<ContainerWrapper> {
         const version = await validateContainerApp(options.appId, options.variantId, options.versionId);
         validateContainerSegments(options.segments);
         validateContainerPorts(options.ipv4Ports);
@@ -588,24 +585,6 @@ export class ContainerWrapper {
     terminate() {
         this.logger.info("Terminating");
         this.terminated = true;
-    }
-
-    async registerWebsocket(ws: WebSocket, userId: string) {
-        const daemonConfig = await getDaemonConfig();
-        let connections = 0;
-        for (const id of this.connectedWebsockets.values()) {
-            if (id === userId) {
-                connections++;
-                if (connections >= daemonConfig.maxWebsocketConnectionsPerContainerPerUser) {
-                    throw new OGSHError("ws/connection-limit", `user id '${userId}' has reached max connections to container id '${this.id}' (limit ${daemonConfig.maxWebsocketConnectionsPerContainerPerUser})`);
-                }
-            }
-        }
-        this.connectedWebsockets.set(ws, userId);
-    }
-
-    unregisterWebsocket(ws: WebSocket) {
-        this.connectedWebsockets.delete(ws);
     }
 
     async updateOptions(options: Partial<ContainerWrapperOptions>) {

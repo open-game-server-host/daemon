@@ -3,6 +3,7 @@ import { WebSocket } from "ws";
 import { getDaemonApiKey, getDaemonId } from "../env";
 import { containerWsRouter } from "./routes/containerWsRoutes";
 import { systemWsRouter } from "./routes/systemWsRoutes";
+import { ContainerLogsAndStats } from "../container/container";
 
 const RECONNECT_WAIT_SECONDS = 3; // TODO move this to config
 
@@ -15,6 +16,7 @@ function registerRouter(router: WsRouter) {
 registerRouter(containerWsRouter);
 registerRouter(systemWsRouter);
 
+let ws: WebSocket | undefined;
 export async function connectToApi() {
     // TODO while (isRunning())
     while (true) {
@@ -28,7 +30,7 @@ export async function connectToApi() {
             });
 
             const encodedUrl = encodeURI(`${websocketUrl}?type=daemon&id=${getDaemonId()}&authToken=${getDaemonApiKey()}`)
-            const ws = new WebSocket(encodedUrl);
+            ws = new WebSocket(encodedUrl);
 
             ws.onmessage = event => {
                 let locals: any = {};
@@ -44,10 +46,10 @@ export async function connectToApi() {
                     const router = routers.get(json.route);
                     if (!router) throw new OGSHError("general/unspecified", `router '${json.route}' not found`);
 
-                    router.call(json.action, ws, json.body, locals, logger);
+                    router.call(json.action, ws!, json.body, locals, logger);
                 } catch (error) {
                     logger.error(error as OGSHError);
-                    ws.close();
+                    ws!.close();
                 }
             };
 
@@ -66,6 +68,21 @@ export async function connectToApi() {
                 res();
             };
         });
+        ws = undefined;
         await sleep(RECONNECT_WAIT_SECONDS * 1000);
     }
+}
+
+export async function sendContainerLogsAndStats(containerId: string, logsAndStats: ContainerLogsAndStats) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    ws.send(JSON.stringify({
+        route: "container",
+        action: "logsAndStats",
+        body: {
+            containerId,
+            logsAndStats
+        }
+    }));
 }
