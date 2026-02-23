@@ -64,7 +64,10 @@ export async function connectToApi() {
             };
 
             ws.onclose = event => {
-                logger.info("Connection closed");
+                logger.info("Connection closed", {
+                    code: event.code,
+                    reason: event.reason
+                });
                 res();
             };
         });
