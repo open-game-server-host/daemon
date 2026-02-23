@@ -1,4 +1,4 @@
-import { ContainerPort, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
+import { ContainerAppData, ContainerPort, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
 import { ContainerWrapper, getContainerWrapper } from "../../container/container";
 
@@ -17,12 +17,7 @@ function validateContainerIdBody(ws: WebSocket, body: ContainerIdBody, locals: C
     locals.wrapper = wrapper;
 }
 
-interface ContainerAppBody extends ContainerIdBody {
-    appId: string;
-    variantId: string;
-    versionId: string;
-}
-async function validateContainerAppBody(ws: WebSocket, body: ContainerAppBody, locals: ContainerLocals) {
+async function validateContainerAppBody(ws: WebSocket, body: ContainerAppData & ContainerIdBody, locals: ContainerLocals) {
     if (typeof body.appId !== "string") throw new OGSHError("general/unspecified", `'appId' must be a string`);
     if (typeof body.variantId !== "string") throw new OGSHError("general/unspecified", `'variantId' must be a string`);
     if (typeof body.versionId !== "string") throw new OGSHError("general/unspecified", `'versionId' must be a string`);
@@ -30,11 +25,7 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppBody, l
     if (!version) throw new OGSHError("app/version-not-found", `could not find app id '${body.appId}' variant id '${body.variantId}' version id '${body.versionId}'`);
 }
 
-interface ContainerPortsBody extends ContainerIdBody {
-    ipv4Ports: ContainerPort[];
-    ipv6Ports: ContainerPort[];
-}
-function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsBody, locals: ContainerLocals) {
+function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData & ContainerIdBody, locals: ContainerLocals) {
     if (!Array.isArray(body.ipv4Ports)) throw new OGSHError("general/unspecified", `'ipv4Ports' field must be an array`);
     if (!Array.isArray(body.ipv6Ports)) throw new OGSHError("general/unspecified", `'ipv6Ports' field must be an array`);
     for (const ports of ([] as ContainerPort[]).concat(body.ipv4Ports).concat(body.ipv6Ports)) {
@@ -43,16 +34,10 @@ function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsBody, loc
     }
 }
 
-export interface ContainerRegisterBody extends ContainerPortsBody {
-    appId: string;
-    variantId: string;
-    versionId: string;
-    segments: number;
-}
-async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterBody, locals: any) {
+async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterData & ContainerIdBody, locals: any) {
     if (typeof body.containerId !== "string") throw new OGSHError("general/unspecified", `'containerId' must be a string`);
 }
-containerWsRouter.register("register", validateContainerRegisterBody, validateContainerPortsBody, async (ws, body: ContainerRegisterBody, locals: any) => {
+containerWsRouter.register("register", validateContainerRegisterBody, validateContainerPortsBody, async (ws, body: ContainerRegisterData, locals: any) => {
     await ContainerWrapper.register(body.containerId, body);
 });
 
@@ -82,7 +67,7 @@ containerWsRouter.register("command", validateContainerIdBody, validateContainer
     locals.wrapper.command(body.command);
 });
 
-containerWsRouter.register("install", validateContainerIdBody, validateContainerAppBody, (ws, body: ContainerAppBody, locals: ContainerLocals) => {
+containerWsRouter.register("install", validateContainerIdBody, validateContainerAppBody, (ws, body: ContainerAppData, locals: ContainerLocals) => {
     locals.wrapper.install(body.appId, body.variantId, body.versionId);
 });
 
@@ -105,7 +90,7 @@ containerWsRouter.register("runtime", validateContainerIdBody, validateContainer
     });
 });
 
-containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsBody, locals: ContainerLocals) => {
+containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsData, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
         ipv4Ports: body.ipv4Ports,
         ipv6Ports: body.ipv6Ports
