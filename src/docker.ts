@@ -2,10 +2,9 @@ import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-
 import Docker from "dockerode";
 import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
-import { getDockerSockPath } from "./env";
 
 const docker = new Docker({
-    socketPath: getDockerSockPath()
+    socketPath: "/var/run/docker.sock"
 });
 
 export async function getDockerContainers(): Promise<Docker.ContainerInfo[]> {
