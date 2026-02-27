@@ -42,7 +42,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 const containerFilesPath = await install.wrapper.getContainerFilesPath();
                 await rm(containerFilesPath, { recursive: true, force: true });
                 mkdirSync(containerFilesPath);
-                await asyncCmd(`7za x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
+                await asyncCmd(`7z x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
                 await asyncCmd(`chown -R 1337:1337 "${containerFilesPath}"`, true); // TODO won't be able to run this as non-root so make the container user and the daemon user part of the same group
                 install.wrapper.log("Install finished");
                 install.finish();
