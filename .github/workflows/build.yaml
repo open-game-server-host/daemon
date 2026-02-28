@@ -20,7 +20,7 @@ jobs:
         node-version: 24
         registry-url: https://npm.pkg.github.com/
     - name: Build project
-      run: npm i --omit=dev
+      run: npm i
       env:
         NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - run: npm i -g typescript
