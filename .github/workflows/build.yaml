@@ -31,11 +31,8 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: DEBUG
-      run: |
-        docker
-        ls /var/run
-        find / -name docker.sock 2>/dev/null
+    - name: Enable docker
+      run: systemctl enable --now docker
     - name: Build and Publish Docker image
       uses: docker/build-push-action@v6
       with:
