@@ -21,9 +21,7 @@ jobs:
         registry-url: https://npm.pkg.github.com/
     - name: Build project
       run: |
-        echo "@open-game-server-host:registry=https://npm.pkg.github.com/" >> .npmrc
         echo "//npm.pkg.github.com/:_authToken=\"$TOKEN\"" >> .npmrc
-        echo "//npm.pkg.github.com/:always-auth=true" >> .npmrc
         npm i
       env:
         TOKEN: ${{ secrets.GITHUB_TOKEN }}
