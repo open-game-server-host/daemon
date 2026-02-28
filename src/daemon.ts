@@ -1,9 +1,10 @@
-import { Logger } from "@open-game-server-host/backend-lib";
+import { getGlobalConfig, getMb, Logger } from "@open-game-server-host/backend-lib";
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
-import { getDaemonContainers } from "./api";
+import os from "os";
+import { getDaemonContainers, updateDaemon } from "./api";
 import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
 import { APP_ARCHIVES_PATH, CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
@@ -23,6 +24,15 @@ async function init() {
     }
 
     await cleanupPartiallyDownloadedAppArchives(logger);
+
+    const totalMemoryMb = os.totalmem() / 1_000_000 - getMb(1024); // 1024mb reserved memory
+    const globalConfig = await getGlobalConfig();
+    await updateDaemon({
+        cpuArch: process.arch,
+        cpuName: os.cpus()[0].model,
+        os: os.platform(),
+        segmentsMax: Math.max(0, Math.floor(totalMemoryMb / globalConfig.segment.memoryMb))
+    });
 
     const containers = await getDaemonContainers();
     logger.info("Retrieved active containers from API", {
