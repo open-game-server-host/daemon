@@ -7,6 +7,12 @@ if [ $EUID != 0 ]; then
     exit $?
 fi
 
+BRANCH=$1
+if [ -z "$BRANCH" ]; then
+    BRANCH="main"
+fi
+printf "Using branch '$BRANCH'\n"
+
 # Validate API key
 DAEMON_ID="null"
 while [ "$DAEMON_ID" = "null" ]; do
@@ -59,13 +65,30 @@ WORK_DIR="$HOME_DIR/daemon"
 adduser $USER --disabled-password --disabled-login --home $HOME_DIR --gecos ""
 usermod -aG docker $USER
 mkdir -p $WORK_DIR
-printf "$DAEMON_API_KEY" > "$WORK_DIR/api_key" # TODO read/write only by owner
+API_KEY_PATH="$WORK_DIR/api_key"
+printf "$DAEMON_API_KEY" > "$API_KEY_PATH"
+chmod 600 $API_KEY_PATH
 ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
 chown -R $USER:$USER $HOME_DIR
+START_SCRIPT_PATH="$WORK_DIR/start.sh"
+curl "https://github.com/open-game-server-host/daemon/raw/refs/heads/$BRANCH/start.sh" > $START_SCRIPT_PATH
 
-# TODO download start script
-
-# Add to init system
-
+# Add to systemd (TODO support more init systems)
+printf "Creating systemd service\n"
+SERVICE_NAME="ogsh_daemon.service"
+SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
+rm -rf "$SYSTEMD_SERVICE_FILE"
+printf "[Unit]\n" >> $SYSTEMD_SERVICE_FILE
+printf "Description=Open Game Server Host Daemon\n" >> $SYSTEMD_SERVICE_FILE
+printf "[Service]\n" >> $SYSTEMD_SERVICE_FILE
+printf "Type=simple\n" >> $SYSTEMD_SERVICE_FILE
+printf "Restart=always\n" >> $SYSTEMD_SERVICE_FILE
+printf "RestartSec=1\n" >> $SYSTEMD_SERVICE_FILE
+printf "WorkingDirectory=$WORK_DIR\n" >> $SYSTEMD_SERVICE_FILE
+printf "User=$USER\n" >> $SYSTEMD_SERVICE_FILE
+printf "Group=docker\n" >> $SYSTEMD_SERVICE_FILE
+printf "ExecStart=/bin/bash $START_SCRIPT_PATH\n" >> $SYSTEMD_SERVICE_FILE
+printf "[Install]\n" >> $SYSTEMD_SERVICE_FILE
+printf "WantedBy=multi-user.target\n" >> $SYSTEMD_SERVICE_FILE
 
 printf "Done\n"
