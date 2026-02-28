@@ -52,7 +52,7 @@ while [ ! -S "$DOCKER_SOCK_PATH" ]; do
 done
 
 # Create OGSH user and write files
-USER="ogsh"
+USER="open-game-server-host"
 HOME_DIR="/home/$USER"
 WORK_DIR="$HOME_DIR/daemon"
 adduser $USER --disabled-password --disabled-login --home $HOME_DIR --gecos ""
