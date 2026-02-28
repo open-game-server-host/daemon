@@ -1,8 +1,9 @@
-import { getAppsBranch, Logger, OGSHError } from "@open-game-server-host/backend-lib";
+import { getAppsBranch, getGithubRawFileUrl, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import childProcess from "child_process";
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { STARTUP_FILES_PATH } from "../constants";
 import { getDaemonConfig } from "./daemonConfig";
 
 const logger = new Logger("CONFIG: startup files");
@@ -11,16 +12,14 @@ let callbacks: (() => void)[] = [];
 let filesDownloaded = false;
 
 export async function updateStartupFiles() {
-    // TODO downloading raw blobs from github has a different url to text files so we can't use github_user_content_url defined in constants; for now this is hard coded
-    const url = `https://github.com/open-game-server-host/apps/raw/refs/heads/${getAppsBranch()}/output/startup_files.tar`;
+    const url = getGithubRawFileUrl("apps", getAppsBranch(), "output/startup_files.tar");
     const response = await fetch(url);
     if (!response.body) {
         throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
-    rmSync(daemonConfig.startupFilesPath, { recursive: true, force: true });
-    mkdirSync(daemonConfig.startupFilesPath, { recursive: true });
-    const fileStream = createWriteStream(path.resolve(`${daemonConfig.startupFilesPath}/startup_files.tar`), { flags: 'wx' });
+    rmSync(`${STARTUP_FILES_PATH}/*`, { recursive: true, force: true });
+    const fileStream = createWriteStream(path.resolve(`${STARTUP_FILES_PATH}/startup_files.tar`), { flags: 'wx' });
     const writeStream = Readable.fromWeb(response.body as any).pipe(fileStream);
     await new Promise<void>((res, rej) => {
         writeStream.on("error", rej);
@@ -51,16 +50,16 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     }
     const daemonConfig = await getDaemonConfig();
 
-    if (!existsSync(daemonConfig.startupFilesPath)) {
-        throw new OGSHError("app/startup-files-not-found", `path: '${daemonConfig.startupFilesPath}'`);
+    if (!existsSync(STARTUP_FILES_PATH)) {
+        throw new OGSHError("app/startup-files-not-found", `path: '${STARTUP_FILES_PATH}'`);
     }
 
-    let startupFilesPath = `${daemonConfig.startupFilesPath}/${appId}/${variantId}`;
+    let startupFilesPath = `${STARTUP_FILES_PATH}/${appId}/${variantId}`;
     if (existsSync(startupFilesPath)) {
         return path.resolve(startupFilesPath);
     }
 
-    startupFilesPath = `${daemonConfig.startupFilesPath}/${appId}`;
+    startupFilesPath = `${STARTUP_FILES_PATH}/${appId}`;
     if (existsSync(startupFilesPath)) {
         return path.resolve(startupFilesPath);
     }

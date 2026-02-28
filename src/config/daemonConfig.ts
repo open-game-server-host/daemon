@@ -1,12 +1,7 @@
-import { Config } from "@open-game-server-host/backend-lib";
-import { constants } from "../constants";
-import { getDaemonConfigBranch } from "../env";
+import { Config, parseEnvironmentVariables } from "@open-game-server-host/backend-lib";
 
 interface Daemon {
     port: number; // default 8080
-    appArchivesPath: string;
-    containerFilesPath: string;
-    startupFilesPath: string;
     stopSecondsTimeout: number; // default 120
     runtimeImagesBranch: string;
     appInstallerImage: string;
@@ -15,15 +10,21 @@ interface Daemon {
     maxWebsocketConnectionsPerContainerPerUser: number; // default 3
 }
 
+const env = parseEnvironmentVariables([
+    {
+        key: "DAEMON_CONFIG_BRANCH",
+        defaultValue: "main"
+    }
+]);
+
 class DaemonConfig extends Config<Daemon> {
     constructor() {
-        super(
-            "Daemon",
-            constants.github_user_content_url,
-            "configs",
-            getDaemonConfigBranch(),
-            "daemon.json"
-        );
+        super({
+            name: "Daemon",
+            repo: "configs",
+            branch: env.get("DAEMON_CONFIG_BRANCH")!,
+            filePath: "daemon.json"
+        });
     }
 }
 
@@ -31,9 +32,4 @@ const daemonConfig = new DaemonConfig();
 
 export async function getDaemonConfig(): Promise<Daemon> {
     return daemonConfig.getConfig();
-}
-
-export async function getAppArchivePath(appId: string, variantId: string, versionId: string, build: number): Promise<string> {
-    const daemonConfig = await getDaemonConfig();
-    return `${daemonConfig.appArchivesPath}/${appId}-${variantId}-${versionId}-${build}.7z`;
 }

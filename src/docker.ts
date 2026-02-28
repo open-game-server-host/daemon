@@ -1,10 +1,9 @@
 import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
-import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
 
 const docker = new Docker({
-    socketPath: "/var/run/docker.sock" // TODO this may need to change if the daemon runs in a container
+    socketPath: "/var/run/docker.sock"
 });
 
 export async function getDockerContainers(): Promise<Docker.ContainerInfo[]> {
@@ -57,8 +56,6 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 	if (pull) {
 		docker.pull(fullImageName, {
 			authconfig: {
-				username: getCredentials().github_packages_read_username,
-				password: getCredentials().github_packages_read_token,
 				serveraddress: registryUrl
 			}
 		}).then(stream => {

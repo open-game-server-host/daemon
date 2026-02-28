@@ -1,5 +1,5 @@
 import { Container, getApiConfig, OGSHError } from "@open-game-server-host/backend-lib";
-import { getDaemonApiKey, getDaemonId } from "./env";
+import { API_KEY } from "./daemon";
 
 async function sendApiRequest<T>(url: string, path: string, body: any = {}): Promise<T> {
     if (url.endsWith("/")) {
@@ -13,7 +13,7 @@ async function sendApiRequest<T>(url: string, path: string, body: any = {}): Pro
     const response = await fetch(url, {
         method: "POST",
         headers: {
-            authorization: getDaemonApiKey(),
+            authorization: API_KEY,
             "content-type": "application/json"
         },
         body: JSON.stringify(body)
@@ -36,5 +36,5 @@ async function sendApiRequest<T>(url: string, path: string, body: any = {}): Pro
 
 export async function getDaemonContainers(): Promise<Container[]> {
     const { url } = await getApiConfig();
-    return sendApiRequest<Container[]>(url, `/v1/daemon/${getDaemonId()}/containers`);
+    return sendApiRequest<Container[]>(url, `/v1/daemon/containers`);
 }
