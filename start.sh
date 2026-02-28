@@ -49,3 +49,4 @@ docker pull "$CONTAINER_TAG"
 docker rm -f $CONTAINER_NAME
 docker run -d -u $(id -u "$USER"):$(getent group docker | cut -d: -f3) --read-only --cpus=1 --memory=500m -v $API_KEY_PATH:/ogsh/api_key -v $DOCKER_SOCK_PATH:/var/run/docker.sock -v "$CONTAINER_FILES_PATH":/ogsh/container_files -v "$APP_ARCHIVES_PATH":/ogsh/app_archives -v "$STARTUP_FILES_PATH":/ogsh/startup_files --name $CONTAINER_NAME $CONTAINER_TAG
 printf "INFO  Started container '$CONTAINER_NAME'\n"
+docker logs -f $CONTAINER_NAME
