@@ -1,6 +1,6 @@
 import { getAppsBranch, getGithubRawFileUrl, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import childProcess from "child_process";
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { STARTUP_FILES_PATH } from "../constants";
@@ -18,8 +18,7 @@ export async function updateStartupFiles() {
         throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
-    rmSync(STARTUP_FILES_PATH, { recursive: true, force: true });
-    mkdirSync(STARTUP_FILES_PATH, { recursive: true });
+    rmSync(`${STARTUP_FILES_PATH}/*`, { recursive: true, force: true });
     const fileStream = createWriteStream(path.resolve(`${STARTUP_FILES_PATH}/startup_files.tar`), { flags: 'wx' });
     const writeStream = Readable.fromWeb(response.body as any).pipe(fileStream);
     await new Promise<void>((res, rej) => {
