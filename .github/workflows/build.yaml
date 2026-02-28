@@ -29,7 +29,6 @@ jobs:
         TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - run: npm i -g typescript
     - run: tsc
-    - name: Publish docker image
     - name: Docker login
       uses: docker/login-action@v3
       with:
