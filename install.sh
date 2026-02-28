@@ -13,6 +13,25 @@ if [ -z "$BRANCH" ]; then
 fi
 printf "Using branch '$BRANCH'\n"
 
+# Install Docker, jq, curl
+function get_distro() {
+    if [ -f "/etc/os-release" ]; then
+        source "/etc/os-release"
+        echo $ID_LIKE
+    else
+        printf "Not a linux machine, exiting\n"
+        exit 1
+    fi
+}
+DISTRO=$(get_distro)
+printf "Distribution: $DISTRO\n"
+printf "Installing required packages\n"
+if [ $DISTRO = "debian" ]; then
+    apt update --fix-missing
+    apt install -y docker.io jq curl
+# TODO other distros
+fi
+
 # Validate API key
 DAEMON_ID="null"
 while [ "$DAEMON_ID" = "null" ]; do
@@ -26,52 +45,31 @@ while [ "$DAEMON_ID" = "null" ]; do
     fi
 done
 
-# Install Docker
-function get_distro() {
-    if [[ -f /etc/os-release ]]; then
-        source /etc/os-release
-        echo $ID_LIKE
-    else
-        printf "Not a linux machine, exiting\n"
-        exit 1
-    fi
-}
-DISTRO=$(get_distro)
-printf "Distribution: $DISTRO\n"
-if [ ! -f "/bin/docker" ]; then
-    printf "Installing Docker\n"
-    if [ $DISTRO = "debian" ]; then
-        apt install -y docker.io
-    # TODO other distros
-    fi
-else
-    printf "Docker already installed, skipping\n"
-fi
-
 # Find docker.sock
 DOCKER_SOCK_PATH="/var/run/docker.sock"
 while [ ! -S "$DOCKER_SOCK_PATH" ]; do
     read -p "'$DOCKER_SOCK_PATH' not found, please enter the docker.sock path: " DOCKER_SOCK_PATH
 done
 
-# Docker login
-printf "Please log in to GitHub Container Registry using your username and access token\n"
-docker login ghcr.io
-
 # Create OGSH user and write files
 USER="ogsh"
 HOME_DIR="/home/$USER"
 WORK_DIR="$HOME_DIR/daemon"
 adduser $USER --disabled-password --disabled-login --home $HOME_DIR --gecos ""
-usermod -aG docker $USER
 mkdir -p $WORK_DIR
 API_KEY_PATH="$WORK_DIR/api_key"
 printf "$DAEMON_API_KEY" > "$API_KEY_PATH"
 chmod 600 $API_KEY_PATH
 ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
-chown -R $USER:$USER $HOME_DIR
 START_SCRIPT_PATH="$WORK_DIR/start.sh"
-curl "https://github.com/open-game-server-host/daemon/raw/refs/heads/$BRANCH/start.sh" > $START_SCRIPT_PATH
+curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh" > $START_SCRIPT_PATH
+chmod +x $START_SCRIPT_PATH
+chmod 600 $START_SCRIPT_PATH
+chown -R $USER:$USER $HOME_DIR
+
+# Docker login
+printf "Please log in to GitHub Container Registry using your username and access token\n"
+sudo -u $USER docker login ghcr.io
 
 # Add to systemd (TODO support more init systems)
 printf "Creating systemd service\n"
