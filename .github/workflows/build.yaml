@@ -35,6 +35,7 @@ jobs:
       run: |
         docker
         ls /var/run
+        find / -name docker.sock 2>/dev/null
     - name: Build and Publish Docker image
       uses: docker/build-push-action@v6
       with:
