@@ -2,7 +2,7 @@
 set -e
 
 if [ $EUID != 0 ]; then
-    printf "Running as root\n"
+    printf "INFO  Running as root\n"
     sudo "$0" "$@"
     exit $?
 fi
@@ -11,7 +11,8 @@ BRANCH=$1
 if [ -z "$BRANCH" ]; then
     BRANCH="main"
 fi
-printf "Using branch '$BRANCH'\n"
+printf "INFO  Using branch '$BRANCH'\n"
+sleep 3
 
 # Install Docker, jq, curl
 function get_distro() {
@@ -19,13 +20,13 @@ function get_distro() {
         source "/etc/os-release"
         echo $ID_LIKE
     else
-        printf "Not a linux machine, exiting\n"
+        printf "ERROR Not a linux machine, exiting\n"
         exit 1
     fi
 }
 DISTRO=$(get_distro)
-printf "Distribution: $DISTRO\n"
-printf "Installing required packages\n"
+printf "INFO  Distribution: $DISTRO\n"
+printf "INFO  Installing required packages\n"
 if [ $DISTRO = "debian" ]; then
     apt update --fix-missing
     apt install -y docker.io jq curl
@@ -39,9 +40,9 @@ while [ "$DAEMON_ID" = "null" ]; do
     json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
     DAEMON_ID=$(jq -r .data.id <<< "$json")
     if [ "$DAEMON_ID" = "null" ]; then
-        printf "Invalid API key\n"
+        printf "INFO  Invalid API key\n"
     else
-        printf "Daemon ID: $DAEMON_ID\n"
+        printf "INFO  Daemon ID: $DAEMON_ID\n"
     fi
 done
 
@@ -68,11 +69,11 @@ chmod 600 $START_SCRIPT_PATH
 chown -R $USER:$USER $HOME_DIR
 
 # Docker login
-printf "Please log in to GitHub Container Registry using your username and access token\n"
+printf "INFO  Please log in to GitHub Container Registry using your username and access token\n"
 sudo -u $USER docker login ghcr.io
 
 # Add to systemd (TODO support more init systems)
-printf "Creating systemd service\n"
+printf "INFO  Creating systemd service\n"
 SERVICE_NAME="ogsh_daemon.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
 rm -rf "$SYSTEMD_SERVICE_FILE"
@@ -88,5 +89,7 @@ printf "Group=docker\n" >> $SYSTEMD_SERVICE_FILE
 printf "ExecStart=/bin/bash $START_SCRIPT_PATH\n" >> $SYSTEMD_SERVICE_FILE
 printf "[Install]\n" >> $SYSTEMD_SERVICE_FILE
 printf "WantedBy=multi-user.target\n" >> $SYSTEMD_SERVICE_FILE
+systemctl enable $SERVICE_NAME
 
-printf "Done\n"
+printf "INFO  Install finished\n"
+printf "INFO  Restart your system to start the daemon\n"
