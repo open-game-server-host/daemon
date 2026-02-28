@@ -54,12 +54,16 @@ docker login ghcr.io
 
 # Create OGSH user and write files
 USER="ogsh"
-adduser $USER --disabled-password --disabled-login --home /home/$USER --gecos ""
+HOME_DIR="/home/$USER"
+WORK_DIR="$HOME_DIR/daemon"
+adduser $USER --disabled-password --disabled-login --home $HOME_DIR --gecos ""
 usermod -aG docker $USER
-mkdir -p /home/$USER/daemon
-printf "$DAEMON_API_KEY" > /home/$USER/api_key # TODO read/write only by owner
-ln -s $DOCKER_SOCK_PATH /home/$USER/docker.sock
-chown -R $USER:$USER /home/$USER
+mkdir -p $WORK_DIR
+printf "$DAEMON_API_KEY" > "$WORK_DIR/api_key" # TODO read/write only by owner
+ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
+chown -R $USER:$USER $HOME_DIR
+
+# TODO download start script
 
 # Add to init system
 
