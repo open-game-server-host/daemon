@@ -9,6 +9,7 @@ import Stream from "stream";
 import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
+import { CONTAINER_FILES_PATH } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
 import { queueContainerInstall } from "./containerInstaller";
@@ -228,8 +229,7 @@ export class ContainerWrapper {
     }
 
     async getContainerFilesPath(): Promise<string> {
-        const daemonConfig = await getDaemonConfig();
-        return path.resolve(`${daemonConfig.containerFilesPath}/${this.id}`); // Need to use absolute path to pass into a docker container
+        return path.resolve(`${CONTAINER_FILES_PATH}/${this.id}`); // Need to use absolute path to pass into a docker container
     }
 
     private async getContainerResources(): Promise<{

@@ -1,6 +1,6 @@
 import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, sleep } from "@open-game-server-host/backend-lib";
 import { existsSync, readdirSync, rmSync } from "node:fs";
-import { getAppArchivePath, getDaemonConfig } from "../config/daemonConfig";
+import { APP_ARCHIVES_PATH } from "../constants";
 
 interface Build {
     appId: string;
@@ -17,8 +17,7 @@ interface ArchiveDownloadProgress extends DownloadProgress {
 const progressCallbacks = new Map<string, ((progress: ArchiveDownloadProgress) => void)[]>();
 
 export async function cleanupPartiallyDownloadedAppArchives(logger: Logger) {
-    const daemonConfig = await getDaemonConfig();
-    readdirSync(daemonConfig.appArchivesPath).forEach(file => {
+    readdirSync(APP_ARCHIVES_PATH).forEach(file => {
         if (file.endsWith(".downloading")) {
             logger.info(`Removing partially downloaded archive`, {
                 file
@@ -31,6 +30,10 @@ export async function cleanupPartiallyDownloadedAppArchives(logger: Logger) {
 export async function isAppArchiveLatestBuild(appId: string, variantId: string, versionId: string, build: number): Promise<boolean> {
     const version = await getVersion(appId, variantId, versionId);
     return version?.currentBuild === build;
+}
+
+export async function getAppArchivePath(appId: string, variantId: string, versionId: string, build: number): Promise<string> {
+    return `${APP_ARCHIVES_PATH}/${appId}-${variantId}-${versionId}-${build}.7z`;
 }
 
 export async function updateAppArchive(appId: string, variantId: string, versionId: string, build: number, logger: Logger, progressCallback?: (progress: ArchiveDownloadProgress) => void) {

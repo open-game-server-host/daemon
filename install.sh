@@ -1,27 +1,22 @@
 #!/bin/bash
 set -e
 
-# TODO ask user for app archives path
-# TODO ask user for container files path
-# startup files don't matter because they're small
-
 if [ $EUID != 0 ]; then
+    printf "Running as root\n"
     sudo "$0" "$@"
     exit $?
 fi
 
-DAEMON_BRANCH="main"
-
-# Validate API key to get Daemon ID
-OGSH_DAEMON_ID="null"
-while [ "$OGSH_DAEMON_ID" = "null" ]; do
-    read -p "Enter API key: " OGSH_DAEMON_API_KEY
-    json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $OGSH_DAEMON_API_KEY")
-    OGSH_DAEMON_ID=$(jq -r .data.id <<< "$json")
-    if [ "$OGSH_DAEMON_ID" = "null" ]; then
+# Validate API key
+DAEMON_ID="null"
+while [ "$DAEMON_ID" = "null" ]; do
+    read -p "Enter API key: " DAEMON_API_KEY
+    json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
+    DAEMON_ID=$(jq -r .data.id <<< "$json")
+    if [ "$DAEMON_ID" = "null" ]; then
         printf "Invalid API key\n"
     else
-        printf "Daemon ID: $OGSH_DAEMON_ID\n"
+        printf "Daemon ID: $DAEMON_ID\n"
     fi
 done
 
@@ -48,19 +43,25 @@ else
 fi
 
 # Find docker.sock
-OGSH_DOCKER_SOCK_PATH="/var/run/docker.sock"
-while [ ! -S "$OGSH_DOCKER_SOCK_PATH" ]; do
-    read -p "'$OGSH_DOCKER_SOCK_PATH' not found, please enter the docker.sock path: " OGSH_DOCKER_SOCK_PATH
+DOCKER_SOCK_PATH="/var/run/docker.sock"
+while [ ! -S "$DOCKER_SOCK_PATH" ]; do
+    read -p "'$DOCKER_SOCK_PATH' not found, please enter the docker.sock path: " DOCKER_SOCK_PATH
 done
 
-# TODO start on boot and automatically restart container on stop
-printf "\nCreating Daemon container\n"
-CONTAINER_TAG="ghcr.io/open-game-server-host/daemon:$DAEMON_BRANCH"
-docker rm -f ogsh_daemon # TODO silent if there is no container
-# TODO change credentials path from my local machine
-# TODO move api key to credentials file so it can be changed
-docker container create -it -u 1337:$(getent group docker | cut -d: -f3) --cpus=1 --memory=512m --restart unless-stopped -v /home/dom/Documents/open-game-server-host/Git/daemon/credentials.json:/ogsh/credentials.json -e OGSH_DAEMON_ID="$OGSH_DAEMON_ID" -e OGSH_DAEMON_API_KEY="$OGSH_DAEMON_API_KEY" -v $OGSH_DOCKER_SOCK_PATH:/var/run/docker.sock --name ogsh_daemon $CONTAINER_TAG
-printf "\nStarting Daemon container\n"
-docker start ogsh_daemon
+# Docker login
+printf "Please log in to GitHub Container Registry using your username and access token\n"
+docker login ghcr.io
+
+# Create OGSH user and write files
+USER="ogsh"
+adduser $USER --disabled-password --disabled-login --home /home/$USER --gecos ""
+usermod -aG docker $USER
+mkdir -p /home/$USER/daemon
+printf "$DAEMON_API_KEY" > /home/$USER/api_key # TODO read/write only by owner
+ln -s $DOCKER_SOCK_PATH /home/$USER/docker.sock
+chown -R $USER:$USER /home/$USER
+
+# Add to init system
+
 
 printf "Done\n"

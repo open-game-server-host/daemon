@@ -1,7 +1,8 @@
 node_modules/
 package-lock.json
 build/
-credentials.json
 app_archives/
 container_files/
 startup_files/
+api_key
+docker.sock

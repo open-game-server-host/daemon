@@ -1,7 +1,7 @@
 import { asyncCmd, Version } from "@open-game-server-host/backend-lib";
 import { mkdirSync } from "fs";
 import { rm } from "fs/promises";
-import { getAppArchivePath } from "../config/daemonConfig";
+import { getAppArchivePath } from "../apps/appArchiveCache";
 import { ContainerWrapper } from "./container";
 
 interface QueuedInstall {

@@ -1,9 +1,9 @@
 import { Errors, getApiConfig, Logger, OGSHError, sleep, WsMsg, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
-import { getDaemonApiKey, getDaemonId } from "../env";
+import { ContainerLogsAndStats } from "../container/container";
+import { API_KEY } from "../daemon";
 import { containerWsRouter } from "./routes/containerWsRoutes";
 import { systemWsRouter } from "./routes/systemWsRoutes";
-import { ContainerLogsAndStats } from "../container/container";
 
 const RECONNECT_WAIT_SECONDS = 3; // TODO move this to config
 
@@ -29,7 +29,7 @@ export async function connectToApi() {
                 websocketUrl
             });
 
-            const encodedUrl = encodeURI(`${websocketUrl}?type=daemon&id=${getDaemonId()}&authToken=${getDaemonApiKey()}`)
+            const encodedUrl = encodeURI(`${websocketUrl}?type=daemon&authToken=${API_KEY}`);
             ws = new WebSocket(encodedUrl);
 
             ws.onmessage = event => {

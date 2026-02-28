@@ -1,6 +1,5 @@
 import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
-import { getCredentials } from "./config/credentialsConfig";
 import { ContainerCreateOptions } from "./container/container";
 
 const docker = new Docker({
@@ -57,8 +56,6 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 	if (pull) {
 		docker.pull(fullImageName, {
 			authconfig: {
-				username: getCredentials().github_packages_read_username,
-				password: getCredentials().github_packages_read_token,
 				serveraddress: registryUrl
 			}
 		}).then(stream => {

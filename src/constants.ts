@@ -1,4 +1,6 @@
-export const constants = {
-    github_user_content_url: "https://raw.githubusercontent.com/open-game-server-host",
-    container_work_dir: "/ogsh"
-} as const;
+import { realpathSync } from "fs";
+
+export const CONTAINER_WORK_DIR = realpathSync(".");
+export const APP_ARCHIVES_PATH = `${CONTAINER_WORK_DIR}/app_archives`;
+export const CONTAINER_FILES_PATH = `${CONTAINER_WORK_DIR}/container_files`;
+export const STARTUP_FILES_PATH = `${CONTAINER_WORK_DIR}/startup_files`;
