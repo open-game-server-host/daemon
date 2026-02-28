@@ -1,4 +1,4 @@
-import { ContainerAppData, ContainerPort, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
+import { ContainerAppData, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
 import { ContainerWrapper, getContainerWrapper } from "../../container/container";
 
@@ -26,11 +26,10 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppData & 
 }
 
 function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData & ContainerIdBody, locals: ContainerLocals) {
-    if (!Array.isArray(body.ipv4Ports)) throw new OGSHError("general/unspecified", `'ipv4Ports' field must be an array`);
-    if (!Array.isArray(body.ipv6Ports)) throw new OGSHError("general/unspecified", `'ipv6Ports' field must be an array`);
-    for (const ports of ([] as ContainerPort[]).concat(body.ipv4Ports).concat(body.ipv6Ports)) {
-        if (!Number.isInteger(ports.containerPort)) throw new OGSHError("general/unspecified", `'container_port' must be an integer`);
-        if (!Number.isInteger(ports.hostPort)) throw new OGSHError("general/unspecified", `'host_port' must be an integer`);
+    if (!Array.isArray(body.ports)) throw new OGSHError("general/unspecified", `'ports' field must be an array`);
+    for (const port of body.ports) {
+        if (!Number.isInteger(port.containerPort)) throw new OGSHError("general/unspecified", `'container_port' must be an integer`);
+        if (!Number.isInteger(port.hostPort)) throw new OGSHError("general/unspecified", `'host_port' must be an integer`);
     }
 }
 
@@ -92,7 +91,6 @@ containerWsRouter.register("runtime", validateContainerIdBody, validateContainer
 
 containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsData, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
-        ipv4Ports: body.ipv4Ports,
-        ipv6Ports: body.ipv6Ports
+        ports: body.ports
     });
 });

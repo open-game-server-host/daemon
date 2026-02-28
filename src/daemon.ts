@@ -5,7 +5,6 @@ logger.info("Starting");
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { getDaemonContainers } from "./api";
 import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
-import { getDaemonConfig } from "./config/daemonConfig";
 import { APP_ARCHIVES_PATH, CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
 import { connectToApi } from "./ws/wsClient";
@@ -14,7 +13,6 @@ import { connectToApi } from "./ws/wsClient";
 export const API_KEY = readFileSync("/ogsh/api_key").toString();
 
 async function init() {
-    const daemonConfig = await getDaemonConfig();
     if (!existsSync(APP_ARCHIVES_PATH)) {
         logger.info(`Creating app archives path (${APP_ARCHIVES_PATH})`);
         mkdirSync(APP_ARCHIVES_PATH, { recursive: true });
@@ -33,8 +31,7 @@ async function init() {
     containers.forEach(container => ContainerWrapper.register(container.id, {
         appId: container.appId,
         containerId: container.id,
-        ipv4Ports: container.ipv4Ports,
-        ipv6Ports: container.ipv6Ports,
+        ports: container.ports,
         segments: container.segments,
         variantId: container.variantId,
         versionId: container.versionId
