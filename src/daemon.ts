@@ -1,4 +1,4 @@
-import { getGlobalConfig, getMb, Logger, UpdateDaemonData } from "@open-game-server-host/backend-lib";
+import { getGlobalConfig, Logger, UpdateDaemonData } from "@open-game-server-host/backend-lib";
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
@@ -25,7 +25,7 @@ async function init() {
 
     await cleanupPartiallyDownloadedAppArchives(logger);
 
-    const totalMemoryMb = os.totalmem() / 1_000_000 - getMb(1024); // 1024mb reserved memory
+    const totalMemoryMb = os.totalmem() / 1_000_000 - 1024; // 1024mb reserved memory
     const globalConfig = await getGlobalConfig();
     const update: UpdateDaemonData = {
         cpuArch: process.arch,
@@ -34,7 +34,6 @@ async function init() {
         segmentsMax: Math.max(0, Math.floor(totalMemoryMb / globalConfig.segment.memoryMb))
     }
     logger.info("Updating daemon info", update);
-    console.log(`TOTAL MEM MB: ${totalMemoryMb}, TOTAL SEGMENTS: ${Math.floor(totalMemoryMb / globalConfig.segment.memoryMb)}, SEGMENT MEMORY MB: ${globalConfig.segment.memoryMb}`);
     await updateDaemon(update);
 
     const containers = await getDaemonContainers();
