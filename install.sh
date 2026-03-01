@@ -38,6 +38,7 @@ DAEMON_ID="null"
 while [ "$DAEMON_ID" = "null" ]; do
     read -p "Enter API key: " DAEMON_API_KEY
     json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
+    printf "INFO  Received from API: $json\n"
     DAEMON_ID=$(jq -r .data.id <<< "$json")
     if [ "$DAEMON_ID" = "null" ]; then
         printf "INFO  Invalid API key\n"
