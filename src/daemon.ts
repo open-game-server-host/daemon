@@ -1,4 +1,4 @@
-import { getGlobalConfig, getMb, Logger } from "@open-game-server-host/backend-lib";
+import { getGlobalConfig, getMb, Logger, UpdateDaemonData } from "@open-game-server-host/backend-lib";
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
@@ -27,12 +27,14 @@ async function init() {
 
     const totalMemoryMb = os.totalmem() / 1_000_000 - getMb(1024); // 1024mb reserved memory
     const globalConfig = await getGlobalConfig();
-    await updateDaemon({
+    const update: UpdateDaemonData = {
         cpuArch: process.arch,
         cpuName: os.cpus()[0].model,
         os: os.platform(),
         segmentsMax: Math.max(0, Math.floor(totalMemoryMb / globalConfig.segment.memoryMb))
-    });
+    }
+    logger.info("Updating daemon info", update);
+    await updateDaemon(update);
 
     const containers = await getDaemonContainers();
     logger.info("Retrieved active containers from API", {
