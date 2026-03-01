@@ -34,6 +34,8 @@ async function init() {
         segmentsMax: Math.max(0, Math.floor(totalMemoryMb / globalConfig.segment.memoryMb))
     }
     logger.info("Updating daemon info", update);
+    console.log(`TOTAL MEM BYTES: ${os.totalmem()}`);
+    console.log(`TOTAL MEM MB: ${os.totalmem() / 1_000_000}`);
     await updateDaemon(update);
 
     const containers = await getDaemonContainers();
