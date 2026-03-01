@@ -12,9 +12,22 @@ fi
 USER="$(whoami)"
 printf "INFO  Running as user '$USER'\n"
 
+printf "INFO  Checking for new start script\n"
+START_SCRIPT_PATH="$BASE_PATH/start.sh"
+START_SCRIPT_URL="https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh"
+NEW_START_SCRIPT="$(curl $START_SCRIPT_URL)"
+if [ "$(cat $START_SCRIPT_PATH)" = "$NEW_START_SCRIPT" ]; then
+    printf "INFO  This is the latest version\n"
+else
+    printf "INFO  Restarting to update\n"
+    sleep 3
+    printf "$NEW_START_SCRIPT" > $START_SCRIPT_PATH
+    exit 0
+fi
+
 API_KEY_PATH="$BASE_PATH/api_key"
 if [ ! -f "$API_KEY_PATH" ]; then
-    printf "ERROR Api key not found! ($API_KEY_PATH)\n"
+    printf "ERROR API key not found! ($API_KEY_PATH)\n"
     exit 1
 fi
 
