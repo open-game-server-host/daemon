@@ -1,6 +1,7 @@
 import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, sleep } from "@open-game-server-host/backend-lib";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { APP_ARCHIVES_PATH } from "../constants";
+import { API_KEY } from "../daemon";
 
 interface Build {
     appId: string;
@@ -82,7 +83,7 @@ export async function updateAppArchive(appId: string, variantId: string, version
                     let success = false;
                     await downloadToFile(archiveUrl, archivePath, {
                         headers: {
-                            "authorization": "TODO"
+                            "authorization": API_KEY
                         }
                     }, progress => {
                         lastProgress = progress;
