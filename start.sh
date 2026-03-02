@@ -46,14 +46,21 @@ else
     exit 1
 fi
 
-CONTAINER_FILES_PATH="$BASE_PATH/container_files"
-mkdir -p "$CONTAINER_FILES_PATH"
-
-APP_ARCHIVES_PATH="$BASE_PATH/app_archives"
-mkdir -p "$APP_ARCHIVES_PATH"
-
-STARTUP_FILES_PATH="$BASE_PATH/startup_files"
-mkdir -p "$STARTUP_FILES_PATH"
+APP_ARCHIVES_PATH="$(cat app_archives_path)"
+if [ -z "$APP_ARCHIVES_PATH" ]; then
+    printf "ERROR '$(realpath app_archives_path)' is empty!\n"
+    exit 1
+fi
+CONTAINER_FILES_PATH="$(cat container_files_path)"
+if [ -z "$CONTAINER_FILES_PATH" ]; then
+    printf "ERROR '$(realpath container_files_path)' is empty!\n"
+    exit 1
+fi
+STARTUP_FILES_PATH="$(cat startup_files_path)"
+if [ -z "$STARTUP_FILES_PATH" ]; then
+    printf "ERROR '$(realpath startup_files_path)' is empty!\n"
+    exit 1
+fi
 
 CONTAINER_NAME="ogsh_daemon"
 CONTAINER_TAG="ghcr.io/open-game-server-host/daemon:$BRANCH"
