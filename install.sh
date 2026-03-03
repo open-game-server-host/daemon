@@ -85,20 +85,20 @@ ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
 START_SCRIPT_PATH="$WORK_DIR/start.sh"
 curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh" > $START_SCRIPT_PATH
 chmod +x $START_SCRIPT_PATH
-chmod 600 $START_SCRIPT_PATH
+chmod 760 $START_SCRIPT_PATH
 printf "$APP_ARCHIVES_PATH" > "$WORK_DIR/app_archives_path"
 printf "$CONTAINER_FILES_PATH" > "$WORK_DIR/container_files_path"
 printf "$STARTUP_FILES_PATH" > "$WORK_DIR/startup_files_path"
 chown -R $USER:$USER $HOME_DIR
-chmod 600 "$WORK_DIR/app_archives_path"
-chmod 600 "$WORK_DIR/container_files_path"
-chmod 600 "$WORK_DIR/startup_files_path"
+chmod 760 "$WORK_DIR/app_archives_path"
+chmod 760 "$WORK_DIR/container_files_path"
+chmod 760 "$WORK_DIR/startup_files_path"
 mkdir -p "$APP_ARCHIVES_PATH"
 mkdir -p "$CONTAINER_FILES_PATH"
 mkdir -p "$STARTUP_FILES_PATH"
-chmod 600 "$APP_ARCHIVES_PATH"
-chmod 600 "$CONTAINER_FILES_PATH"
-chmod 600 "$STARTUP_FILES_PATH"
+chmod 760 "$APP_ARCHIVES_PATH"
+chmod 760 "$CONTAINER_FILES_PATH"
+chmod 760 "$STARTUP_FILES_PATH"
 chown -R $USER:$USER "$APP_ARCHIVES_PATH"
 chown -R $USER:$USER "$CONTAINER_FILES_PATH"
 chown -R $USER:$USER "$STARTUP_FILES_PATH"
