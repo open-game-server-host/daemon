@@ -419,13 +419,7 @@ export class ContainerWrapper {
         const cpuMonitor = getCpuMonitor(runtime);
         const memoryMonitor = getMemoryMonitor(runtime);
         const networkMonitor = getNetworkMonitor(runtime);
-        const containerInfo = await container.inspect().catch(error => { // TODO this could be calculated instead of inspecting docker container
-            throw new OGSHError("container/not-found", error);
-        });
-        const totalNanoCpus = containerInfo.HostConfig.NanoCpus;
-        if (!totalNanoCpus) {
-            throw new OGSHError("container/invalid", `HostConfig.NanoCpus not found for container id '${this.id}'`);
-        }
+        const totalNanoCpus = ((await getGlobalConfig()).segment.maxCpus) * this.options.segments * 1_000_000_000;
         const thisWrapper = this;
         await container.stats({
             stream: true
