@@ -92,6 +92,7 @@ function validateContainerSegments(segments: number) {
 }
 
 export function validateContainerPorts(portsData: ContainerPortsData) {
+    console.log(`container ports data: '${JSON.stringify(portsData)}'`);
     Object.entries(portsData).forEach(([ipVersion, ports]) => {
         if (!Array.isArray(ports)) {
             throw new OGSHError("container/invalid", `ip version '${ipVersion}' ports should be an array of integers, not '${ports}'`);
