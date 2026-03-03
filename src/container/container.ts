@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 export const containerEventEmitter = new EventEmitter();
 
-import { ContainerPortsData, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
+import { ContainerPorts, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
 import path from "path";
@@ -61,7 +61,7 @@ export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
     versionId: string;
-    ports: ContainerPortsData;
+    ports: ContainerPorts;
     runtime: string;
     segments: number;
 }
@@ -91,7 +91,7 @@ function validateContainerSegments(segments: number) {
     }
 }
 
-export function validateContainerPorts(portsData: ContainerPortsData) {
+export function validateContainerPorts(portsData: ContainerPorts) {
     console.log(`container ports data: '${JSON.stringify(portsData)}'`);
     Object.entries(portsData).forEach(([ipVersion, ports]) => {
         if (!Array.isArray(ports)) {

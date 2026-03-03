@@ -1,4 +1,4 @@
-import { ContainerAppData, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
+import { ContainerAppData, ContainerPorts, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
 import { ContainerWrapper, getContainerWrapper, validateContainerPorts } from "../../container/container";
 
@@ -25,8 +25,8 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppData & 
     if (!version) throw new OGSHError("app/version-not-found", `could not find app id '${body.appId}' variant id '${body.variantId}' version id '${body.versionId}'`);
 }
 
-function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData & ContainerIdBody, locals: ContainerLocals) {
-    validateContainerPorts(body);
+function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData, locals: ContainerLocals) {
+    validateContainerPorts(body.ports);
 }
 
 async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterData & ContainerIdBody, locals: any) {
@@ -85,7 +85,7 @@ containerWsRouter.register("runtime", validateContainerIdBody, validateContainer
     });
 });
 
-containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsData, locals: ContainerLocals) => {
+containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPorts, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
         ports: body
     });
