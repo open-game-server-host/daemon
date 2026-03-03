@@ -1,11 +1,10 @@
 import { Errors, getApiConfig, Logger, OGSHError, sleep, WsMsg, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
+import { getDaemonConfig } from "../config/daemonConfig";
 import { ContainerLogsAndStats } from "../container/container";
 import { API_KEY, isRunning } from "../daemon";
 import { containerWsRouter } from "./routes/containerWsRoutes";
 import { systemWsRouter } from "./routes/systemWsRoutes";
-
-const RECONNECT_WAIT_SECONDS = 3; // TODO move this to config
 
 const logger = new Logger("WS");
 const routers = new Map<string, WsRouter>();
@@ -59,7 +58,7 @@ export async function connectToApi() {
             };
 
             ws.onerror = event => {
-                logger.info(`Connection failed, retrying in ${RECONNECT_WAIT_SECONDS} seconds`);
+                logger.error(event.error);
             };
 
             ws.onclose = event => {
@@ -71,7 +70,11 @@ export async function connectToApi() {
             };
         });
         ws = undefined;
-        await sleep(RECONNECT_WAIT_SECONDS * 1000);
+        if (isRunning()) {
+            const daemonConfig = await getDaemonConfig();
+            logger.info(`Reconnecting in ${daemonConfig.websocketReconnectSeconds} seconds`);
+            await sleep(daemonConfig.websocketReconnectSeconds * 1000);
+        }
     }
 }
 
