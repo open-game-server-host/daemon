@@ -157,7 +157,7 @@ export class ContainerWrapper {
         });
 
         (async () => {
-            while (!this.terminated) {
+            while (!this.terminated && this.isRunning()) {
                 const action = this.actionQueue.shift();
                 if (action) {
                     try {
@@ -179,7 +179,7 @@ export class ContainerWrapper {
                 throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`);
             }
             const storageMonitor = getStorageMonitor(getVersionRuntime(version));
-            while (!this.terminated) {
+            while (!this.terminated && this.isRunning()) {
                 this.mostRecentStats.timestamp = Date.now();
                 this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
                 const logsAndStats: ContainerLogsAndStats = {

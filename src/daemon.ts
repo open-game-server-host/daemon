@@ -8,10 +8,24 @@ import { getDaemonContainers, updateDaemon } from "./api";
 import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
 import { APP_ARCHIVES_PATH, CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
-import { connectToApi } from "./ws/wsClient";
+import { connectToApi, disconnectFromApi } from "./ws/wsClient";
 
 // TODO need to be able to write the api key for key rotations
 export const API_KEY = readFileSync("/ogsh/api_key").toString();
+
+let running = true;
+
+export function isRunning() {
+    return running;
+}
+
+export function shutdown() {
+    if (!running) {
+        return;
+    }
+    running = false;
+    disconnectFromApi();
+}
 
 async function init() {
     if (!existsSync(APP_ARCHIVES_PATH)) {

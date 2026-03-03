@@ -1,7 +1,7 @@
 import { Errors, getApiConfig, Logger, OGSHError, sleep, WsMsg, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
 import { ContainerLogsAndStats } from "../container/container";
-import { API_KEY } from "../daemon";
+import { API_KEY, isRunning } from "../daemon";
 import { containerWsRouter } from "./routes/containerWsRoutes";
 import { systemWsRouter } from "./routes/systemWsRoutes";
 
@@ -18,8 +18,7 @@ registerRouter(systemWsRouter);
 
 let ws: WebSocket | undefined;
 export async function connectToApi() {
-    // TODO while (isRunning())
-    while (true) {
+    while (isRunning()) {
         await new Promise<void>(async res => {
             let { websocketUrl } = await getApiConfig();
             if (!websocketUrl.endsWith("/")) {
@@ -88,4 +87,8 @@ export async function sendContainerLogsAndStats(containerId: string, logsAndStat
             logsAndStats
         }
     }));
+}
+
+export function disconnectFromApi() {
+    ws?.close();
 }

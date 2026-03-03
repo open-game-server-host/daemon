@@ -1,7 +1,7 @@
 import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, sleep } from "@open-game-server-host/backend-lib";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { APP_ARCHIVES_PATH } from "../constants";
-import { API_KEY } from "../daemon";
+import { API_KEY, isRunning } from "../daemon";
 
 interface Build {
     appId: string;
@@ -123,7 +123,7 @@ export async function updateAppArchive(appId: string, variantId: string, version
                 }
                 logger.info(`Finished downloading ${appId} / ${variantId} / ${versionId} / ${build} (${downloadQueue.length} remaining)`);
 
-            } while (downloadQueue.length > 0);
+            } while (downloadQueue.length > 0 && isRunning());
             downloadQueue = undefined;
         })();
     }

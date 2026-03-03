@@ -1,6 +1,7 @@
 import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { ContainerCreateOptions } from "./container/container";
+import { isRunning } from "./daemon";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock"
@@ -173,7 +174,7 @@ export async function startDockerContainer(container: Docker.Container): Promise
 					containerToStart.finish(await containerToStart.container.start());
 					await sleep(250);
 				}
-			} while (containerStartQueue.length > 0);
+			} while (containerStartQueue.length > 0 && isRunning());
 			containerStartQueue = undefined;
 		})();
 	}
