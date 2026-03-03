@@ -158,7 +158,7 @@ export class ContainerWrapper {
 
         (async () => {
             while (!this.terminated && this.isRunning()) {
-                const action = this.actionQueue.shift();
+                const action = this.actionQueue.shift(); // TODO max action queue length
                 if (action) {
                     try {
                         await action();
@@ -437,6 +437,7 @@ export class ContainerWrapper {
                     containerEventEmitter.removeListener("stop", stopHandler);
                 }
             }
+            containerEventEmitter.addListener("stop", stopHandler);
 
             stream.on("data", async (data: Buffer) => {
                 if (!running) {
