@@ -152,7 +152,7 @@ export async function removeDockerContainer(containerId: string) {
     }).catch(_ => {});
 }
 
-// TODO test whether this is necessary
+// TODO test whether a start queue is necessary
 let containerStartQueue: { container: Docker.Container, finish: (value: any) => void }[] | undefined;
 export async function startDockerContainer(container: Docker.Container): Promise<any> {
 	let processQueue = false;

@@ -1,7 +1,7 @@
 import EventEmitter from "events";
 export const containerEventEmitter = new EventEmitter();
 
-import { ContainerPort, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
+import { ContainerPortsData, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
 import path from "path";
@@ -61,7 +61,7 @@ export interface ContainerWrapperOptions {
     appId: string;
     variantId: string;
     versionId: string;
-    ports: ContainerPort[];
+    ports: ContainerPortsData;
     runtime: string;
     segments: number;
 }
@@ -91,24 +91,20 @@ function validateContainerSegments(segments: number) {
     }
 }
 
-function validateContainerRuntime(version: Version, dockerImage: string) {
-    if (!version.supportedRuntimes.includes(dockerImage)) {
-        throw new OGSHError("container/invalid", `invalid docker image '${dockerImage}', supported docker images: ${version.supportedRuntimes}`);
-    }
-}
-
-function validateContainerPorts(ports: ContainerPort[]) {
-    if (!Array.isArray(ports)) {
-        throw new OGSHError("container/invalid", `ports should be an array of integers, not '${ports}'`);
-    }
-    for (const port of ports) {
-        if (!Number.isInteger(port.containerPort)) {
-            throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'container_port'`);
+export function validateContainerPorts(portsData: ContainerPortsData) {
+    Object.entries(portsData).forEach(([ipVersion, ports]) => {
+        if (!Array.isArray(ports)) {
+            throw new OGSHError("container/invalid", `ip version '${ipVersion}' ports should be an array of integers, not '${ports}'`);
         }
-        if (!Number.isInteger(port.hostPort)) {
-            throw new OGSHError("container/invalid", `one or more of the port objects does not contain field 'host_port'`);
+        for (const port of ports) {
+            if (!Number.isInteger(port.containerPort)) {
+                throw new OGSHError("container/invalid", `ip version '${ipVersion}' does not contain field 'containerPort'`);
+            }
+            if (!Number.isInteger(port.hostPort)) {
+                throw new OGSHError("container/invalid", `ip id '${ipVersion}' does not contain field 'hostPort'`);
+            }
         }
-    }
+    });
 }
 
 const maxCpus = os.cpus().length;
@@ -350,8 +346,8 @@ export class ContainerWrapper {
                     readonly: false
                 }
             ],
-            ipv4PortMappings: this.options.ports,
-            ipv6PortMappings: this.options.ports,
+            ipv4PortMappings: this.options.ports[4] || [],
+            ipv6PortMappings: this.options.ports[6] || [],
             maxCpus: globalConfig.segment.maxCpus * this.options.segments,
             memoryMb: globalConfig.segment.memoryMb * this.options.segments
         });

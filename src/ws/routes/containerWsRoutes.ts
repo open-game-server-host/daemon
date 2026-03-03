@@ -1,6 +1,6 @@
 import { ContainerAppData, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
-import { ContainerWrapper, getContainerWrapper } from "../../container/container";
+import { ContainerWrapper, getContainerWrapper, validateContainerPorts } from "../../container/container";
 
 export const containerWsRouter = new WsRouter("container");
 
@@ -26,11 +26,7 @@ async function validateContainerAppBody(ws: WebSocket, body: ContainerAppData & 
 }
 
 function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData & ContainerIdBody, locals: ContainerLocals) {
-    if (!Array.isArray(body.ports)) throw new OGSHError("general/unspecified", `'ports' field must be an array`);
-    for (const port of body.ports) {
-        if (!Number.isInteger(port.containerPort)) throw new OGSHError("general/unspecified", `'container_port' must be an integer`);
-        if (!Number.isInteger(port.hostPort)) throw new OGSHError("general/unspecified", `'host_port' must be an integer`);
-    }
+    validateContainerPorts(body);
 }
 
 async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterData & ContainerIdBody, locals: any) {
@@ -91,6 +87,6 @@ containerWsRouter.register("runtime", validateContainerIdBody, validateContainer
 
 containerWsRouter.register("ports", validateContainerIdBody, validateContainerPortsBody, (ws, body: ContainerPortsData, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({
-        ports: body.ports
+        ports: body
     });
 });
