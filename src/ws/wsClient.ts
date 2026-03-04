@@ -31,6 +31,7 @@ export async function connectToApi() {
             ws = new WebSocket(encodedUrl);
 
             ws.onmessage = event => {
+                console.log(`ws onmessage type: '${event.type}', data type: ${typeof event.data}`);
                 let locals: any = {};
                 try {
                     const json = JSON.parse(event.data.toString()) as WsMsg & { error?: string, info?: string };
