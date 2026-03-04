@@ -1,6 +1,7 @@
 import { ContainerAppData, ContainerPorts, ContainerPortsData, ContainerRegisterData, getVersion, OGSHError, WsRouter } from "@open-game-server-host/backend-lib";
 import { WebSocket } from "ws";
 import { ContainerWrapper, getContainerWrapper, validateContainerPorts } from "../../container/container";
+import { sendFileHandle } from "../wsClient";
 
 export const containerWsRouter = new WsRouter("container");
 
@@ -89,4 +90,12 @@ containerWsRouter.register("ports", validateContainerIdBody, validateContainerPo
     locals.wrapper.updateOptions({
         ports: body
     });
+});
+
+interface ContainerFileHandleBody extends ContainerIdBody {
+    path: string;
+}
+containerWsRouter.register("fileHandle", validateContainerIdBody, (ws, body: ContainerFileHandleBody, locals: ContainerLocals) => {
+    const handle = locals.wrapper.createOrGetFileHandle(body.path);
+    sendFileHandle(body.containerId, body.path, handle);
 });

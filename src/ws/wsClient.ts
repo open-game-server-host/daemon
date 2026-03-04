@@ -93,6 +93,21 @@ export async function sendContainerLogsAndStats(containerId: string, logsAndStat
     }));
 }
 
+export async function sendFileHandle(containerId: string, path: string, handle: number) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        return;
+    }
+    ws.send(JSON.stringify({
+        route: "container",
+        action: "fileHandle",
+        body: {
+            containerId,
+            path,
+            handle
+        }
+    }));
+}
+
 export function disconnectFromApi() {
     ws?.close();
 }

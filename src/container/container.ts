@@ -138,6 +138,11 @@ export class ContainerWrapper {
         timestamp: 0
     }
 
+    // TODO if a file handle isn't used for 10 seconds then it should expire
+    // TODO max 10 open file handles per user at any time
+    private fileHandlesById = new Map<number, string>();
+    private fileHandlesByPath = new Map<string,number>();
+
     private constructor(
         private readonly id: string,
         private readonly options: ContainerWrapperOptions
@@ -579,5 +584,24 @@ export class ContainerWrapper {
 
     log(msg: string) {
         this.pendingLogs.push(msg);
+    }
+
+    createOrGetFileHandle(path: string): number {
+        // TODO make sure user cannot go above the /ogsh/files/. directory
+        let handle = this.fileHandlesByPath.get(path);
+        if (!handle) {
+            handle = this.fileHandlesByPath.size;
+            this.fileHandlesByPath.set(path, handle);
+            this.fileHandlesById.set(handle, path);
+        }
+        return handle;
+    }
+
+    closeFileHandle(handle: number) {
+        const path = this.fileHandlesById.get(handle);
+        if (path) {
+            this.fileHandlesById.delete(handle);
+            this.fileHandlesByPath.delete(path);
+        }
     }
 }
