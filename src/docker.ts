@@ -1,5 +1,6 @@
 import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
+import os from "os";
 import { ContainerCreateOptions } from "./container/container";
 import { isRunning } from "./daemon";
 
@@ -91,13 +92,15 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
+			User: os.userInfo().username,
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
 				NanoCpus: Math.floor(options.maxCpus * 1_000_000_000),
 				PortBindings: {},
 				Binds: [],
-				ReadonlyRootfs: options.containerReadOnly || false
+				ReadonlyRootfs: options.containerReadOnly || false,
+				PidsLimit: 500 // Reasonable default, may need to tune this per app
 			},
 			ExposedPorts: {}
 		};

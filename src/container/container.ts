@@ -312,8 +312,6 @@ export class ContainerWrapper {
             return;
         }
 
-        // TODO check whether service is locked
-
         // Validate and update runtime image
         const globalConfig = await getGlobalConfig();
         const fullDockerImage = await this.getDockerImage();
@@ -482,7 +480,6 @@ export class ContainerWrapper {
             this.commandAction(variant.stopCommand);
         } else {
             container.stop({
-                // TODO might need to set signal?
                 t: daemonConfig.stopSecondsTimeout
             });
         }
