@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# Make sure system supports systemd
+if [ -z "$(ls /bin | grep systemd | head -1)" ]; then
+    printf "ERROR systemd not supported!\n"
+    exit 1
+fi
+
 if [ $EUID != 0 ]; then
     printf "INFO  Running as root\n"
     sudo "$0" "$@"
@@ -18,7 +24,11 @@ sleep 3
 function get_distro() {
     if [ -f "/etc/os-release" ]; then
         source "/etc/os-release"
-        echo $ID_LIKE
+        if [ -z "$ID_LIKE" ]; then
+            echo $ID
+        else
+            echo $ID_LIKE
+        fi
     else
         printf "ERROR Not a linux machine, exiting\n"
         exit 1
@@ -27,10 +37,18 @@ function get_distro() {
 DISTRO=$(get_distro)
 printf "INFO  Distribution: $DISTRO\n"
 printf "INFO  Installing required packages\n"
-if [ $DISTRO = "debian" ]; then
+if [ "$DISTRO" = "debian" ]; then
     apt update --fix-missing
     apt install -y docker.io jq curl
-# TODO other distros
+elif [ "$DISTRO" = "fedora" ]; then
+    yum update -y
+    yum install -y docker jq curl
+elif [ "$DISTRO" = "arch" ]; then
+    yes | pacman -Syu # Update packages
+    yes | pacman -Syu docker jq curl
+else
+    printf "ERROR Unknown distribution '$DISTRO'"
+    exit 1
 fi
 
 # Validate API key
@@ -107,7 +125,7 @@ chown -R $USER:$USER "$STARTUP_FILES_PATH"
 printf "INFO  Please log in to GitHub Container Registry using your username and access token\n"
 sudo -u $USER docker login ghcr.io
 
-# Add to systemd (TODO support more init systems)
+# Add to systemd
 printf "INFO  Creating systemd service\n"
 SERVICE_NAME="ogsh_daemon.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
