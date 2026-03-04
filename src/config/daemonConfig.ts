@@ -9,6 +9,7 @@ interface Daemon {
     websocketEventPushFrequencyMs: number; // default 1000
     maxWebsocketConnectionsPerContainerPerUser: number; // default 3
     websocketReconnectSeconds: number; // default 3
+    containerActionQueueMaxLength: number; // default 3
 }
 
 const env = parseEnvironmentVariables([

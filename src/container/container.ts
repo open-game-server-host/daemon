@@ -154,7 +154,7 @@ export class ContainerWrapper {
 
         (async () => {
             while (!this.terminated && this.isRunning()) {
-                const action = this.actionQueue.shift(); // TODO max action queue length
+                const action = this.actionQueue.shift();
                 if (action) {
                     try {
                         await action();
@@ -203,9 +203,13 @@ export class ContainerWrapper {
         return wrapper;
     }
 
-    private queueAction(action: Action) {
+    private async queueAction(action: Action) {
         if (this.terminated) {
             throw new OGSHError("container/terminated", `could not queue action for container id '${this.id}'`);
+        }
+        const daemonConfig = await getDaemonConfig();
+        if (this.actionQueue.length >= daemonConfig.containerActionQueueMaxLength) {
+            throw new OGSHError("general/unspecified", `container id '${this.id}' max action queue length reached (${this.actionQueue.length})`);
         }
         this.actionQueue.push(action.bind(this));
     }
