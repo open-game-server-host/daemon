@@ -559,14 +559,6 @@ export class ContainerWrapper {
         this.logger.info("Install finished");
     }
 
-    async setConfig() {
-        // TODO
-    }
-
-    async getConfigs() {
-        // TODO
-    }
-
     terminate() {
         this.logger.info("Terminating");
         this.terminated = true;
