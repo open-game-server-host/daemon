@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import os from "os";
 import { getDaemonContainers, updateDaemon } from "./api";
 import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
-import { APP_ARCHIVES_PATH, CONTAINER_FILES_PATH } from "./constants";
+import { CONTAINER_APP_ARCHIVES_PATH, CONTAINER_CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
 import { connectToApi, disconnectFromApi } from "./ws/wsClient";
 
@@ -28,13 +28,13 @@ export function shutdown() {
 }
 
 async function init() {
-    if (!existsSync(APP_ARCHIVES_PATH)) {
-        logger.info(`Creating app archives path (${APP_ARCHIVES_PATH})`);
-        mkdirSync(APP_ARCHIVES_PATH, { recursive: true });
+    if (!existsSync(CONTAINER_APP_ARCHIVES_PATH)) {
+        logger.info(`Creating app archives path (${CONTAINER_APP_ARCHIVES_PATH})`);
+        mkdirSync(CONTAINER_APP_ARCHIVES_PATH, { recursive: true });
     }
-    if (!existsSync(CONTAINER_FILES_PATH)) {
-        logger.info(`Creating container files path (${CONTAINER_FILES_PATH})`);
-        mkdirSync(CONTAINER_FILES_PATH, { recursive: true });
+    if (!existsSync(CONTAINER_CONTAINER_FILES_PATH)) {
+        logger.info(`Creating container files path (${CONTAINER_CONTAINER_FILES_PATH})`);
+        mkdirSync(CONTAINER_CONTAINER_FILES_PATH, { recursive: true });
     }
 
     await cleanupPartiallyDownloadedAppArchives(logger);

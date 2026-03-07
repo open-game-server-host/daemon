@@ -4,13 +4,12 @@ export const containerEventEmitter = new EventEmitter();
 import { ContainerPorts, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
-import path from "path";
 import Stream from "stream";
 import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
-import { CONTAINER_FILES_PATH } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
+import { getHostContainerFilesPath } from "../env";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
 import { queueContainerInstall } from "./containerInstaller";
 import { ContainerStats } from "./stats/containerStats";
@@ -227,7 +226,7 @@ export class ContainerWrapper {
     }
 
     async getContainerFilesPath(): Promise<string> {
-        return path.resolve(`${CONTAINER_FILES_PATH}/${this.id}`); // Need to use absolute path to pass into a docker container
+        return `${getHostContainerFilesPath()}/${this.id}`;
     }
 
     private async getContainerResources(): Promise<{
@@ -337,7 +336,6 @@ export class ContainerWrapper {
 
         this.logger.debug(`Creating docker container`);
         console.log("creating container");
-        const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
             environmentVariables: environmentVariables,
@@ -346,7 +344,7 @@ export class ContainerWrapper {
             bindMounts: [
                 {
                     container_folder: "/ogsh/files",
-                    host_folder: containerFilesPath
+                    host_folder: await this.getContainerFilesPath()
                 },
                 {
                     container_folder: "/ogsh/startup_files",

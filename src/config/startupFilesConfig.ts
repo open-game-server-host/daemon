@@ -1,9 +1,10 @@
 import { getAppsBranch, getGithubRawFileUrl, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import childProcess from "child_process";
-import { createWriteStream, existsSync, readdirSync, rmSync } from "node:fs";
+import { createWriteStream, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { STARTUP_FILES_PATH } from "../constants";
+import { CONTAINER_STARTUP_FILES_PATH } from "../constants";
+import { getHostStartupFilesPath } from "../env";
 import { getDaemonConfig } from "./daemonConfig";
 
 const logger = new Logger("CONFIG: startup files");
@@ -18,8 +19,8 @@ export async function updateStartupFiles() {
         throw new OGSHError("config/download-failed", "startup files response.body was empty");
     }
     const daemonConfig = await getDaemonConfig();
-    rmSync(`${STARTUP_FILES_PATH}/*`, { recursive: true, force: true });
-    const fileStream = createWriteStream(path.resolve(`${STARTUP_FILES_PATH}/startup_files.tar`), { flags: 'wx' });
+    rmSync(`${CONTAINER_STARTUP_FILES_PATH}/*`, { recursive: true, force: true });
+    const fileStream = createWriteStream(path.resolve(`${CONTAINER_STARTUP_FILES_PATH}/startup_files.tar`), { flags: 'wx' });
     const writeStream = Readable.fromWeb(response.body as any).pipe(fileStream);
     await new Promise<void>((res, rej) => {
         writeStream.on("error", rej);
@@ -48,14 +49,5 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     if (!filesDownloaded) {
         await new Promise<void>(res => callbacks.push(res));
     }
-
-    const path = `${STARTUP_FILES_PATH}/${appId}/${variantId}`;
-    if (!existsSync(path)) {
-        throw new OGSHError("app/startup-files-not-found", `appId '${appId}' variantId '${variantId}'`);
-    }
-
-    console.log(`startup files path: '${path}'`);
-    console.log(`contents:`);
-    readdirSync(path).forEach(file => console.log(`  ${file}`));
-    return path;
+    return `${getHostStartupFilesPath()}/${appId}/${variantId}`;
 }
