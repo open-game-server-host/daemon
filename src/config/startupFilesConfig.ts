@@ -48,21 +48,10 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     if (!filesDownloaded) {
         await new Promise<void>(res => callbacks.push(res));
     }
-    const daemonConfig = await getDaemonConfig();
 
-    if (!existsSync(STARTUP_FILES_PATH)) {
-        throw new OGSHError("app/startup-files-not-found", `path: '${STARTUP_FILES_PATH}'`);
+    const path = `${STARTUP_FILES_PATH}/${appId}/${variantId}`;
+    if (!existsSync(path)) {
+        throw new OGSHError("app/startup-files-not-found", `appId '${appId}' variantId '${variantId}'`);
     }
-
-    let startupFilesPath = `${STARTUP_FILES_PATH}/${appId}/${variantId}`;
-    if (existsSync(startupFilesPath)) {
-        return path.resolve(startupFilesPath);
-    }
-
-    startupFilesPath = `${STARTUP_FILES_PATH}/${appId}`;
-    if (existsSync(startupFilesPath)) {
-        return path.resolve(startupFilesPath);
-    }
-
-    throw new OGSHError("app/startup-files-not-found", `appId '${appId}' variantId '${variantId}'`);
+    return path;
 }
