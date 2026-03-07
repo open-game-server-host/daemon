@@ -2,7 +2,7 @@ import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-
 import Docker from "dockerode";
 import os from "os";
 import { ContainerCreateOptions } from "./container/container";
-import { API_KEY, isRunning } from "./daemon";
+import { isRunning } from "./daemon";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock"
@@ -58,8 +58,6 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 	if (pull) {
 		docker.pull(fullImageName, {
 			authconfig: {
-				username: "daemon",
-				password: API_KEY,
 				serveraddress: registryUrl
 			}
 		}).then(stream => {
