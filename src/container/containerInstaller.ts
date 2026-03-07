@@ -3,6 +3,7 @@ import { mkdirSync } from "fs";
 import { rm } from "fs/promises";
 import { getAppArchivePath } from "../apps/appArchiveCache";
 import { isRunning } from "../daemon";
+import { getContainerUsername } from "../env";
 import { ContainerWrapper } from "./container";
 
 interface QueuedInstall {
@@ -44,6 +45,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 await rm(containerFilesPath, { recursive: true, force: true });
                 mkdirSync(containerFilesPath);
                 await asyncCmd(`7zz x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
+                await asyncCmd(`chown -R ${getContainerUsername()}:${getContainerUsername()} "${containerFilesPath}"`);
                 install.wrapper.log("Install finished");
                 install.finish();
             } while (installQueue.length > 0 && isRunning());
