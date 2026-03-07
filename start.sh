@@ -15,15 +15,15 @@ echo "INFO  Running as user '$USER'"
 echo "INFO  Checking for new start script"
 START_SCRIPT_PATH="$BASE_PATH/start.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh"
-NEW_START_SCRIPT="$(curl $START_SCRIPT_URL)"
-if [ "$(cat $START_SCRIPT_PATH)" = "$NEW_START_SCRIPT" ]; then
+NEW_START_SCRIPT_PATH="$BASE_PATH/start.sh.update"
+curl --output $NEW_START_SCRIPT_PATH $START_SCRIPT_URL
+if [ "$(cat $START_SCRIPT_PATH)" = "$(cat $NEW_START_SCRIPT)" ]; then
     echo "INFO  This is the latest version"
+    rm "$NEW_START_SCRIPT_PATH"
 else
     echo "INFO  Restarting to update"
     sleep 3
-    NEW_START_SCRIPT_PATH="$BASE_PATH/start.sh.update"
-    printf "$NEW_START_SCRIPT" > "$NEW_START_SCRIPT_PATH"
-    cp "$NEW_START_SCRIPT_PATH" "$START_SCRIPT_PATH"
+    mv -f "$NEW_START_SCRIPT_PATH" "$START_SCRIPT_PATH"
     rm "$NEW_START_SCRIPT_PATH"
     exit 0
 fi
