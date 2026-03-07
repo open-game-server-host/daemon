@@ -1,7 +1,8 @@
-import { cmd, getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
+import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { ContainerCreateOptions } from "./container/container";
 import { isRunning } from "./daemon";
+import { getContainerUsername } from "./env";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock"
@@ -85,14 +86,13 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
             parsedEnvVariables.push(`${key}=${value}`);
         });
 
-		const uid = cmd("id -u", true);
 		const dockerCreateOptions: any = { // Use any type because Docker.ContainerCreateOptions doesn't contain HostConfig.NanoCPUs
 			Image: options.image,
 			OpenStdin: true,
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: `${uid}:${uid}`,
+			User: `${getContainerUsername()}:${getContainerUsername()}`,
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),

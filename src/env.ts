@@ -8,6 +8,9 @@ const parsed = parseEnvironmentVariables([
     {
         key: "HOST_STARTUP_FILES_PATH",
         defaultValue: "startup_files"
+    },
+    {
+        key: "CONTAINER_USERNAME"
     }
 ]);
 
@@ -17,4 +20,8 @@ export function getHostContainerFilesPath(): string {
 
 export function getHostStartupFilesPath(): string {
     return parsed.get("HOST_STARTUP_FILES_PATH")!;
+}
+
+export function getContainerUsername(): string {
+    return parsed.get("CONTAINER_USERNAME")!;
 }
