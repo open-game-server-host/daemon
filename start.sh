@@ -21,7 +21,10 @@ if [ "$(cat $START_SCRIPT_PATH)" = "$NEW_START_SCRIPT" ]; then
 else
     printf "INFO  Restarting to update\n"
     sleep 3
-    printf "$NEW_START_SCRIPT" > $START_SCRIPT_PATH
+    NEW_START_SCRIPT_PATH="$BASE_PATH/start.sh.update"
+    printf "$NEW_START_SCRIPT" > "$NEW_START_SCRIPT_PATH"
+    cp "$NEW_START_SCRIPT_PATH" "$START_SCRIPT_PATH"
+    rm "$NEW_START_SCRIPT_PATH"
     exit 0
 fi
 
