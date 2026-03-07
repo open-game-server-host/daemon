@@ -33,7 +33,8 @@ async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegis
     if (typeof body.containerId !== "string") throw new OGSHError("general/unspecified", `'containerId' must be a string`);
 }
 containerWsRouter.register("register", validateContainerRegisterBody, validateContainerPortsBody, async (ws, body: ContainerRegisterData, locals: any) => {
-    await ContainerWrapper.register(body.containerId, body);
+    const wrapper = await ContainerWrapper.register(body.containerId, body);
+    wrapper.install(body.appId, body.variantId, body.versionId);
 });
 
 containerWsRouter.register("start", validateContainerIdBody, (ws, body: ContainerIdBody, locals: ContainerLocals) => {
