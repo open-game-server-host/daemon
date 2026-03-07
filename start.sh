@@ -17,7 +17,11 @@ START_SCRIPT_PATH="$BASE_PATH/start.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh"
 NEW_START_SCRIPT_PATH="$BASE_PATH/start.sh.update"
 curl --output $NEW_START_SCRIPT_PATH $START_SCRIPT_URL
-if [ "$(md5sum $START_SCRIPT_PATH)" = "$(md5sum $NEW_START_SCRIPT)" ]; then
+EXISTING_MD5="$(md5sum $START_SCRIPT_PATH | cut -d' ' -f1)"
+UPDATED_MD5="$(md5sum $NEW_START_SCRIPT_PATH | cut -d' ' -f1)"
+echo "INFO  Existing start script MD5 sum: '$EXISTING_MD5'"
+echo "INFO  Updated start script MD5 sum:  '$UPDATED_MD5'"
+if [ "$EXISTING_MD5" = "$UPDATED_MD5" ]; then
     echo "INFO  This is the latest version"
     rm "$NEW_START_SCRIPT_PATH"
 else
