@@ -91,7 +91,8 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: cmd(`id -u`),
+			// User: cmd(`id -u`),
+			User: "1001",
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
