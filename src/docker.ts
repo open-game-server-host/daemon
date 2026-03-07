@@ -85,14 +85,14 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
             parsedEnvVariables.push(`${key}=${value}`);
         });
 
-		const uid = +cmd("id -u", true);
+		const uid = cmd("id -u", true);
 		const dockerCreateOptions: any = { // Use any type because Docker.ContainerCreateOptions doesn't contain HostConfig.NanoCPUs
 			Image: options.image,
 			OpenStdin: true,
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: uid,
+			User: `${uid}:${uid}`,
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
