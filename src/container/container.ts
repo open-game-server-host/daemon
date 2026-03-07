@@ -4,10 +4,12 @@ export const containerEventEmitter = new EventEmitter();
 import { ContainerPorts, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import os from "os";
+import path from "path";
 import Stream from "stream";
 import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
+import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
 import { getHostContainerFilesPath } from "../env";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
@@ -168,7 +170,7 @@ export class ContainerWrapper {
 
         (async () => {
             const daemonConfig = await getDaemonConfig();
-            const containerFilesPath = await this.getContainerFilesPath();
+            const containerFilesPath = this.getContainerFilesPath();
             const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
             if (!version) {
                 throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`);
@@ -225,8 +227,8 @@ export class ContainerWrapper {
         return this.options;
     }
 
-    async getContainerFilesPath(): Promise<string> {
-        return `${getHostContainerFilesPath()}/${this.id}`;
+    getContainerFilesPath(): string {
+        return path.resolve(`${CONTAINER_CONTAINER_FILES_PATH}/${this.id}`);
     }
 
     private async getContainerResources(): Promise<{
@@ -344,7 +346,7 @@ export class ContainerWrapper {
             bindMounts: [
                 {
                     container_folder: "/ogsh/files",
-                    host_folder: await this.getContainerFilesPath()
+                    host_folder: `${getHostContainerFilesPath()}/${this.id}`
                 },
                 {
                     container_folder: "/ogsh/startup_files",

@@ -2,8 +2,8 @@ import { asyncCmd, Version } from "@open-game-server-host/backend-lib";
 import { mkdirSync } from "fs";
 import { rm } from "fs/promises";
 import { getAppArchivePath } from "../apps/appArchiveCache";
-import { ContainerWrapper } from "./container";
 import { isRunning } from "../daemon";
+import { ContainerWrapper } from "./container";
 
 interface QueuedInstall {
     wrapper: ContainerWrapper;
@@ -40,7 +40,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 install.wrapper.log("Install started");
                 const { appId: appId, variantId: variantId, versionId: versionId } = install.wrapper.getOptions();
                 const appArchivePath = await getAppArchivePath(appId, variantId, versionId, install.version.currentBuild);
-                const containerFilesPath = await install.wrapper.getContainerFilesPath();
+                const containerFilesPath = install.wrapper.getContainerFilesPath();
                 await rm(containerFilesPath, { recursive: true, force: true });
                 mkdirSync(containerFilesPath);
                 await asyncCmd(`7z x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
