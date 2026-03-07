@@ -1,6 +1,6 @@
 import { getAppsBranch, getGithubRawFileUrl, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import childProcess from "child_process";
-import { createWriteStream, existsSync, rmSync } from "node:fs";
+import { createWriteStream, existsSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { STARTUP_FILES_PATH } from "../constants";
@@ -53,5 +53,9 @@ export async function getStartupFilesPath(appId: string, variantId: string): Pro
     if (!existsSync(path)) {
         throw new OGSHError("app/startup-files-not-found", `appId '${appId}' variantId '${variantId}'`);
     }
+
+    console.log(`startup files path: '${path}'`);
+    console.log(`contents:`);
+    readdirSync(path).forEach(file => console.log(`  ${file}`));
     return path;
 }
