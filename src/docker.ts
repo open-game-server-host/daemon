@@ -91,7 +91,8 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: cmd("id -u", true),
+			// User: cmd("id -u", true),
+			User: "open-game-server-host",
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
