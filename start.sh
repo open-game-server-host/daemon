@@ -8,9 +8,10 @@ BRANCH=$1
 if [ -z "$BRANCH" ]; then
     BRANCH="main"
 fi
+echo "INFO  Branch '$BRANCH'"
 
 USER="$(whoami)"
-echo "INFO  Running as user '$USER'"
+echo "INFO  Running as user '$USER' ($(id -u))"
 
 echo "INFO  Checking for new start script"
 START_SCRIPT_PATH="$BASE_PATH/start.sh"
