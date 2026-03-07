@@ -309,10 +309,12 @@ export class ContainerWrapper {
         });
 
         if (await this.isRunning()) {
+            this.logger.debug(`Attempted to start but alreayd running`);
             return;
         }
 
         // Validate and update runtime image
+        this.logger.debug(`Pulling docker image`);
         const globalConfig = await getGlobalConfig();
         const fullDockerImage = await this.getDockerImage();
         await pullDockerImage(globalConfig.dockerRegistryUrl, fullDockerImage, this.logger);
@@ -320,8 +322,10 @@ export class ContainerWrapper {
         // TODO run auto-patcher
 
         // Remove old container to use new runtime image
+        this.logger.debug(`Removing old container`);
         await removeDockerContainer(this.getContainerId());
 
+        this.logger.debug(`Creating environment variables`);
         const app = await getApp(this.options.appId);
         const variant = await getVariant(this.options.appId, this.options.variantId);
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
@@ -331,6 +335,7 @@ export class ContainerWrapper {
             ...version?.environmentVariables
         }
 
+        this.logger.debug(`Creating docker container`);
         const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
@@ -356,6 +361,7 @@ export class ContainerWrapper {
 
         // TODO sanitise configs
 
+        this.logger.debug(`Starting docker container`);
         await startDockerContainer(container);
         this.logger.info("Started");
 
