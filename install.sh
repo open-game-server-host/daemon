@@ -121,10 +121,6 @@ chown -R $USER:$USER "$APP_ARCHIVES_PATH"
 chown -R $USER:$USER "$CONTAINER_FILES_PATH"
 chown -R $USER:$USER "$STARTUP_FILES_PATH"
 
-# Docker login
-printf "INFO  Please log in to GitHub Container Registry using your username and access token\n"
-sudo -u $USER docker login ghcr.io
-
 # Add to systemd
 printf "INFO  Creating systemd service\n"
 SERVICE_NAME="ogsh_daemon.service"
