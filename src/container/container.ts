@@ -336,6 +336,7 @@ export class ContainerWrapper {
         }
 
         this.logger.debug(`Creating docker container`);
+        console.log("creating container");
         const containerFilesPath = await this.getContainerFilesPath();
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
@@ -362,6 +363,7 @@ export class ContainerWrapper {
         // TODO sanitise configs
 
         this.logger.debug(`Starting docker container`);
+        console.log("starting container");
         await startDockerContainer(container);
         this.logger.info("Started");
 
@@ -369,6 +371,7 @@ export class ContainerWrapper {
         const sessionStart = Date.now();
 
         let running = false;
+        console.log("monitoring container");
         (async () => {
             for (let attempt = 1; attempt <= 3; attempt++) {
                 if (!running) {
