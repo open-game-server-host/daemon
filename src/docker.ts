@@ -1,6 +1,5 @@
-import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
+import { cmd, getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
-import os from "os";
 import { ContainerCreateOptions } from "./container/container";
 import { isRunning } from "./daemon";
 
@@ -92,7 +91,7 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: os.userInfo().username,
+			User: cmd(`id -u ${cmd("whoami")}`),
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
