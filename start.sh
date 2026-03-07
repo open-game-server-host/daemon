@@ -17,7 +17,7 @@ START_SCRIPT_PATH="$BASE_PATH/start.sh"
 START_SCRIPT_URL="https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh"
 NEW_START_SCRIPT_PATH="$BASE_PATH/start.sh.update"
 curl --output $NEW_START_SCRIPT_PATH $START_SCRIPT_URL
-if [ "$(cat $START_SCRIPT_PATH)" = "$(cat $NEW_START_SCRIPT)" ]; then
+if [ "$(md5sum $START_SCRIPT_PATH)" = "$(md5sum $NEW_START_SCRIPT)" ]; then
     echo "INFO  This is the latest version"
     rm "$NEW_START_SCRIPT_PATH"
 else
