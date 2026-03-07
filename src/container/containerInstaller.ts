@@ -43,7 +43,8 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 const containerFilesPath = install.wrapper.getContainerFilesPath();
                 await rm(containerFilesPath, { recursive: true, force: true });
                 mkdirSync(containerFilesPath);
-                await asyncCmd(`7z x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
+                console.log(`unpacking archive '${appArchivePath}' to '${containerFilesPath}'`);
+                await asyncCmd(`7z x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`);
                 install.wrapper.log("Install finished");
                 install.finish();
             } while (installQueue.length > 0 && isRunning());
