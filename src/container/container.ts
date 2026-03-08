@@ -351,6 +351,10 @@ export class ContainerWrapper {
                     container_folder: "/ogsh/startup_files",
                     host_folder: await getStartupFilesPath(this.options.appId, this.options.variantId),
                     readonly: false
+                },
+                {
+                    container_folder: "/etc/passwd",
+                    host_folder: "/etc/passwd"
                 }
             ],
             ipv4PortMappings: this.options.ports[4] || [],
