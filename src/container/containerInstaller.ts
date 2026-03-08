@@ -45,7 +45,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
                 mkdirSync(containerFilesPath);
                 await asyncCmd(`7zz x "${appArchivePath}" -bso0 -bsp0 -o"${containerFilesPath}"`, true);
                 const uid = await asyncCmd("id -u", true);
-                await asyncCmd(`chown -R ${uid}:${uid} "${containerFilesPath}"`);
+                await asyncCmd(`chown -R 1337:1337 "${containerFilesPath}"`);
                 install.wrapper.log("Install finished");
                 install.finish();
             } while (installQueue.length > 0 && isRunning());
