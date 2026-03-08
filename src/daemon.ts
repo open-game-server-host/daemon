@@ -1,4 +1,4 @@
-import { getGlobalConfig, Logger, UpdateDaemonData } from "@open-game-server-host/backend-lib";
+import { cmd, getGlobalConfig, Logger, UpdateDaemonData } from "@open-game-server-host/backend-lib";
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
@@ -12,6 +12,7 @@ import { connectToApi, disconnectFromApi } from "./ws/wsClient";
 
 // TODO need to be able to write the api key for key rotations
 export const API_KEY = readFileSync("/ogsh/api_key").toString();
+export const UID = cmd("id -u").trim();
 
 let running = true;
 

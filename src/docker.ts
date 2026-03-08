@@ -1,7 +1,7 @@
-import { cmd, getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
+import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { ContainerCreateOptions } from "./container/container";
-import { isRunning } from "./daemon";
+import { isRunning, UID } from "./daemon";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock"
@@ -91,7 +91,7 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 			name: options.name,
 			VolumeDriver: "local",
 			Env: parsedEnvVariables,
-			User: cmd("id -u", true),
+			User: UID,
 			HostConfig: {
 				Memory: getMb(options.memoryMb),
 				MemorySwap: getMb(options.memoryMb) + getMb(500),
