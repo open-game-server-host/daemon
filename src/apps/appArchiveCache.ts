@@ -1,15 +1,18 @@
-import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, sleep } from "@open-game-server-host/backend-lib";
+import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import { existsSync, readdirSync, rmSync } from "node:fs";
 import { CONTAINER_APP_ARCHIVES_PATH } from "../constants";
 import { API_KEY, isRunning } from "../daemon";
 
-interface Build {
+interface PendingDownload {
     appId: string;
     variantId: string;
     versionId: string;
     build: number;
+    promise: Promise<void>;
+    resolve: () => void;
+    reject: (reason?: any) => void;
 }
-let downloadQueue: Build[] | undefined;
+let downloadQueue: PendingDownload[] | undefined;
 
 interface ArchiveDownloadProgress extends DownloadProgress {
     finished: boolean;
@@ -55,22 +58,31 @@ export async function updateAppArchive(appId: string, variantId: string, version
         processQueue = true;
         downloadQueue = [];
     }
-    downloadQueue.unshift({
-        appId,
-        variantId,
-        versionId,
-        build
+    const promise = new Promise<void>((resolve, reject) => {
+        downloadQueue!.unshift({
+            appId,
+            variantId,
+            versionId,
+            build,
+            promise,
+            resolve,
+            reject
+        });
     });
 
     if (processQueue) {
         (async () => {
-            await sleep(100);
             do {
                 const next = downloadQueue.pop();
                 if (!next) {
                     break;
                 }
 
+                let lastProgress: DownloadProgress = {
+                    bytesProcessed: 0,
+                    bytesTotal: 0
+                };
+                let success = false;
                 for (let attempt = 1; attempt <= 3; attempt++) {
                     const { appId, variantId, versionId, build } = next;
                     logger.info(`Downloading ${appId} / ${variantId} / ${versionId} / ${build} (${downloadQueue.length} remaining)`, {
@@ -79,8 +91,6 @@ export async function updateAppArchive(appId: string, variantId: string, version
                     const archivePath = await getAppArchivePath(appId, variantId, versionId, build);
                     const globalConfig = await getGlobalConfig();
                     const archiveUrl = `http://${globalConfig.appArchiveUrl}/v1/archive/${appId}/${variantId}/${versionId}/${build}`;
-                    let lastProgress: DownloadProgress;
-                    let success = false;
                     await downloadToFile(archiveUrl, archivePath, {
                         headers: {
                             "authorization": API_KEY
@@ -102,29 +112,35 @@ export async function updateAppArchive(appId: string, variantId: string, version
                         logger.error(error, {
                             archiveUrl
                         });
-                    }).finally(async () => {
-                        (progressCallbacks.get(archivePath) || []).forEach(cb => cb({
-                            ...lastProgress,
-                            finished: true
-                        }));
-                        
-                        // Remove previous builds of this version
-                        for (let i = build - 1; i > 0; i--) {
-                            const oldArchivePath = await getAppArchivePath(appId, variantId, versionId, i);
-                            if (existsSync(oldArchivePath)) {
-                                rmSync(oldArchivePath);
-                            }
-                        }
                     });
 
                     if (success) {
                         break;
                     }
                 }
-                logger.info(`Finished downloading ${appId} / ${variantId} / ${versionId} / ${build} (${downloadQueue.length} remaining)`);
+                if (success) {
+                    (progressCallbacks.get(archivePath) || []).forEach(cb => cb({
+                        ...lastProgress,
+                        finished: true
+                    }));
+                    
+                    // Remove previous builds of this version
+                    for (let i = build - 1; i > 0; i--) {
+                        const oldArchivePath = await getAppArchivePath(appId, variantId, versionId, i);
+                        if (existsSync(oldArchivePath)) {
+                            rmSync(oldArchivePath);
+                        }
+                    }
+                    logger.info(`Finished downloading ${appId} / ${variantId} / ${versionId} / ${build} (${downloadQueue.length} remaining)`);
+                    next.resolve();
+                } else {
+                    next.reject(new OGSHError("general/unspecified", `Failed to download ${appId} / ${variantId} / ${versionId} / ${build}`));
+                }
 
             } while (downloadQueue.length > 0 && isRunning());
             downloadQueue = undefined;
         })();
     }
+
+    return promise;
 }
