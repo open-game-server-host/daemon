@@ -5,7 +5,7 @@ logger.info("Starting");
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import os from "os";
 import { getDaemonContainers, updateDaemon } from "./api";
-import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveCache";
+import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveDownloader";
 import { CONTAINER_APP_ARCHIVES_PATH, CONTAINER_CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
 import { connectToApi, disconnectFromApi } from "./ws/wsClient";

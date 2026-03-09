@@ -1,7 +1,7 @@
 import { asyncCmd, Version } from "@open-game-server-host/backend-lib";
 import { mkdirSync } from "fs";
 import { rm } from "fs/promises";
-import { getAppArchivePath } from "../apps/appArchiveCache";
+import { getAppArchivePath } from "../apps/appArchiveDownloader";
 import { isRunning } from "../daemon";
 import { ContainerWrapper } from "./container";
 

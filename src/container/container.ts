@@ -6,7 +6,6 @@ import Docker from "dockerode";
 import os from "os";
 import path from "path";
 import Stream from "stream";
-import { updateAppArchive } from "../apps/appArchiveCache";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
@@ -579,4 +578,8 @@ export class ContainerWrapper {
     log(msg: string) {
         this.pendingLogs.push(msg);
     }
+}
+
+function updateAppArchive(appId: string, variantId: string, versionId: string, currentBuild: number, logger: Logger, arg5: (progress: any) => void) {
+    throw new Error("Function not implemented.");
 }
