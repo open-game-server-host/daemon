@@ -1,7 +1,7 @@
-import { getMb, Logger, OGSHError, sleep } from "@open-game-server-host/backend-lib";
+import { getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { ContainerCreateOptions } from "./container/container";
-import { isRunning, UID } from "./daemon";
+import { UID } from "./daemon";
 
 const docker = new Docker({
     socketPath: "/var/run/docker.sock"
@@ -152,33 +152,4 @@ export async function removeDockerContainer(containerId: string) {
         force: true, // Kill container before removing it
         v: true // Remove anonymous volumes
     }).catch(_ => {});
-}
-
-// TODO test whether a start queue is necessary
-let containerStartQueue: { container: Docker.Container, finish: (value: any) => void }[] | undefined;
-export async function startDockerContainer(container: Docker.Container): Promise<any> {
-	let processQueue = false;
-	if (!containerStartQueue) {
-		containerStartQueue = [];
-		processQueue = true;
-	}
-	const promise = new Promise<any>(res => {
-		containerStartQueue!.push({
-			container,
-			finish: res
-		});
-	});
-	if (processQueue) {
-		(async () => {
-			do {
-				const containerToStart = containerStartQueue.shift();
-				if (containerToStart) {
-					containerToStart.finish(await containerToStart.container.start());
-					await sleep(250);
-				}
-			} while (containerStartQueue.length > 0 && isRunning());
-			containerStartQueue = undefined;
-		})();
-	}
-	return promise;
 }

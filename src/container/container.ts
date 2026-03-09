@@ -10,7 +10,7 @@ import { downloadLatestAppArchive } from "../apps/appArchiveDownloader";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
-import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer, startDockerContainer } from "../docker";
+import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
 import { getHostContainerFilesPath } from "../env";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
 import { queueContainerInstall } from "./containerInstaller";
@@ -362,7 +362,7 @@ export class ContainerWrapper {
         // TODO sanitise configs
 
         this.logger.debug(`Starting docker container`);
-        await startDockerContainer(container);
+        await container.start();
         this.logger.info("Started");
 
         containerEventEmitter.emit("start", this);
