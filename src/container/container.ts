@@ -6,6 +6,7 @@ import Docker from "dockerode";
 import os from "os";
 import path from "path";
 import Stream from "stream";
+import { downloadLatestAppArchive } from "../apps/appArchiveDownloader";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
@@ -547,7 +548,7 @@ export class ContainerWrapper {
 
         // Make sure app archive is downloaded
         let percent = 0;
-        await updateAppArchive(appId, variantId, versionId, version.currentBuild, this.logger, progress => {
+        await downloadLatestAppArchive(appId, variantId, versionId, this.logger, progress => {
             const newPercent = Math.floor(100 / progress.bytesTotal * progress.bytesProcessed);
             if (percent !== newPercent) {
                 percent = newPercent;
@@ -579,7 +580,3 @@ export class ContainerWrapper {
         this.pendingLogs.push(msg);
     }
 }
-function updateAppArchive(appId: string, variantId: string, versionId: string, currentBuild: number, logger: Logger, arg5: (progress: any) => void) {
-    throw new Error("Function not implemented.");
-}
-
