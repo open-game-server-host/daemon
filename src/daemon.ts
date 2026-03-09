@@ -2,6 +2,12 @@ import { cmd, getGlobalConfig, Logger, UpdateDaemonData } from "@open-game-serve
 const logger = new Logger("MAIN");
 logger.info("Starting");
 
+let running = true;
+
+export function isRunning() {
+    return running;
+}
+
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import os from "os";
 import { getDaemonContainers, updateDaemon } from "./api";
@@ -13,12 +19,6 @@ import { connectToApi, disconnectFromApi } from "./ws/wsClient";
 // TODO need to be able to write the api key for key rotations
 export const API_KEY = readFileSync("/ogsh/api_key").toString();
 export const UID = cmd("id -u").trim();
-
-let running = true;
-
-export function isRunning() {
-    return running;
-}
 
 export function shutdown() {
     if (!running) {
