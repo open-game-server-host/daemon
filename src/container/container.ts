@@ -579,7 +579,7 @@ export class ContainerWrapper {
         this.pendingLogs.push(msg);
     }
 }
-
 function updateAppArchive(appId: string, variantId: string, versionId: string, currentBuild: number, logger: Logger, arg5: (progress: any) => void) {
     throw new Error("Function not implemented.");
 }
+
