@@ -38,7 +38,7 @@ const downloadQueue: PendingDownload[] = [];
 
 (async () => {
     while (isRunning()) {
-        await sleep(0.5);
+        await sleep(500);
         let next: PendingDownload | undefined;
         while ((next = downloadQueue.shift())) {
             const { appId, variantId, versionId, build, logger } = next;
