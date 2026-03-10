@@ -1,5 +1,6 @@
 import { getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
+import { getDaemonConfig } from "./config/daemonConfig";
 import { ContainerCreateOptions } from "./container/container";
 import { UID } from "./daemon";
 
@@ -42,7 +43,20 @@ interface DockerPullPromise {
 	rej: (reason?: any) => void;
 }
 const pullPromises = new Map<string, DockerPullPromise[]>();
+const lastPullTimes = new Map<string, number>();
 export async function pullDockerImage(registryUrl: string, fullImageName: string, logger: Logger) {
+	const daemonConfig = await getDaemonConfig();
+	const now = Date.now();
+	const cooldownSecondsRemaining = ((daemonConfig.cooldownSecondsBetweenDockerImagePull * 1000) - (now - (lastPullTimes.get(fullImageName) || 0))) / 1000;
+	if (cooldownSecondsRemaining > 0) {
+		logger.info(`Docker image on pull cooldown`, {
+			image: fullImageName,
+			cooldown: `${Math.ceil(cooldownSecondsRemaining)}s`
+		});
+		return;
+	}
+	lastPullTimes.set(fullImageName, now);
+
 	let pull = !pullPromises.has(fullImageName);
 
 	const promise = new Promise<void>((res, rej) => {
@@ -55,6 +69,9 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 	});
 
 	if (pull) {
+		logger.info("Pulling Docker image", {
+			image: fullImageName
+		});
 		docker.pull(fullImageName, {
 			authconfig: {
 				serveraddress: registryUrl
