@@ -10,6 +10,8 @@ interface Daemon {
     maxWebsocketConnectionsPerContainerPerUser: number; // default 3
     websocketReconnectSeconds: number; // default 3
     containerActionQueueMaxLength: number; // default 3
+    cooldownSecondsBetweenDockerImagePull: number; // default 60
+    maxSimultaneousContainerInstalls: number; // default 2
 }
 
 const env = parseEnvironmentVariables([
