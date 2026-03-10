@@ -113,7 +113,7 @@ const maxCpus = os.cpus().length;
 export class ContainerWrapper {
     private readonly logger;
 
-    private actionQueue: Action[] = [];
+    private actionQueue: Action[] | undefined;
     private terminated = false;
 
     private pendingLogs: string[] = [];
@@ -154,21 +154,6 @@ export class ContainerWrapper {
         });
 
         (async () => {
-            while (!this.terminated && this.isRunning()) {
-                const action = this.actionQueue.shift();
-                if (action) {
-                    try {
-                        await action();
-                    } catch (error) {
-                        this.logger.error(error as Error);
-                        this.actionQueue = []; // Clear action queue when an error occurs because the container's state might be invalid
-                    }
-                }
-                await sleep(250);
-            }
-        }).bind(this)();
-
-        (async () => {
             const daemonConfig = await getDaemonConfig();
             const containerFilesPath = this.getContainerFilesPath();
             const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
@@ -178,7 +163,8 @@ export class ContainerWrapper {
             const storageMonitor = getStorageMonitor(getVersionRuntime(version));
             while (!this.terminated && this.isRunning()) {
                 this.mostRecentStats.timestamp = Date.now();
-                this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
+                // TODO re-enable storage monitoring
+                // this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
                 const logsAndStats: ContainerLogsAndStats = {
                     logs: this.pendingLogs,
                     stats: this.mostRecentStats
@@ -209,10 +195,30 @@ export class ContainerWrapper {
             throw new OGSHError("container/terminated", `could not queue action for container id '${this.id}'`);
         }
         const daemonConfig = await getDaemonConfig();
+        let processQueue = false;
+        if (!this.actionQueue) {
+            processQueue = true;
+            this.actionQueue = [];
+        }
         if (this.actionQueue.length >= daemonConfig.containerActionQueueMaxLength) {
             throw new OGSHError("general/unspecified", `container id '${this.id}' max action queue length reached (${this.actionQueue.length})`);
         }
         this.actionQueue.push(action.bind(this));
+
+        if (processQueue) {
+            (async () => {
+                let action: Action | undefined;
+                while (this.actionQueue && (action = this.actionQueue!.shift())) {
+                    try {
+                        await action();
+                    } catch (error) {
+                        this.logger.error(error as Error);
+                        break;
+                    }
+                }
+                this.actionQueue = undefined;
+            })();
+        }
     }
 
     getId(): string {
@@ -533,7 +539,7 @@ export class ContainerWrapper {
     }
 
     install(appId: string, variantId: string, versionId: string) {
-        this.actionQueue = []; // Clear the action queue because other actions are in the context of the previous installation
+        this.actionQueue = undefined; // Clear the action queue because other actions are in the context of the previous installation
         this.queueAction(async () => await this.installAction(appId, variantId, versionId));
         this.queueAction(this.startAction);
     }
