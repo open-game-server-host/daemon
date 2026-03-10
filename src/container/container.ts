@@ -6,14 +6,13 @@ import Docker from "dockerode";
 import os from "os";
 import path from "path";
 import Stream from "stream";
-import { downloadLatestAppArchive } from "../apps/appArchiveDownloader";
+import { downloadLatestAppArchive, getAppArchivePath } from "../apps/appArchiveDownloader";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
 import { getHostContainerFilesPath } from "../env";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
-import { queueContainerInstall } from "./containerInstaller";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
 
@@ -41,8 +40,8 @@ export interface ContainerCreateOptions {
 }
 
 export interface ContainerCreateBindMountOptions {
-	container_folder: string;
-	host_folder: string;
+	container_path: string;
+	host_path: string;
 	readonly?: boolean;
 }
 
@@ -176,6 +175,60 @@ export class ContainerWrapper {
                 await sleep(daemonConfig.websocketEventPushFrequencyMs);
             }
         })();
+
+        containerEventEmitter.addListener("start", (wrapper: ContainerWrapper, container: Docker.Container) => {
+            if (wrapper !== this) {
+                return;
+            }
+            
+            const sessionStart = Date.now();
+
+            let running = false;
+            (async () => {
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    if (!running) {
+                        return;
+                    }
+
+                    this.logger.info(`Starting container monitors`, {
+                        attempt
+                    });
+                    let success = false;
+                    await this.monitorContainer(container, sessionStart).then(() => success = true).catch(error => {
+                        this.logger.error(error);
+                    });
+                    if (success) {
+                        return;
+                    }
+                }
+                this.logger.error(new OGSHError("general/unspecified", `Failed to start container monitors for id '${this.id}', container will run but there will be no console logs or statistics`));
+            })();
+        });
+
+        containerEventEmitter.addListener("stop", (wrapper: ContainerWrapper, output: any) => {
+            if (wrapper !== this) {
+                return;
+            }
+
+            this.mostRecentStats.sessionLength = 0;
+            this.mostRecentStats.online = false;
+            this.mostRecentStats.cpu = {
+                total: 100,
+                used: 0
+            };
+            this.mostRecentStats.memory.used = 0;
+            this.mostRecentStats.network = {
+                in: 0,
+                out: 0
+            };
+            const reason = stopReasons[output?.StatusCode] || "unknown";
+            this.logger.info("Stopped", {
+                reason,
+                appId: this.options.appId,
+                variantId: this.options.variantId,
+                versionId: this.options.versionId,
+            });
+        });
     }
 
     static async register(id: string, options: ContainerRegisterData): Promise<ContainerWrapper> {
@@ -238,13 +291,13 @@ export class ContainerWrapper {
     }
 
     private async getContainerResources(): Promise<{
-        max_cpus: number;
-        memory_mb: number
+        maxCpus: number;
+        memoryMb: number
     }> {
         const globalConfig = await getGlobalConfig();
         return {
-            max_cpus: Math.min(globalConfig.segment.maxCpus * this.options.segments, maxCpus),
-            memory_mb: globalConfig.segment.memoryMb * this.options.segments,
+            maxCpus: Math.min(globalConfig.segment.maxCpus * this.options.segments, maxCpus),
+            memoryMb: globalConfig.segment.memoryMb * this.options.segments,
         }
     }
 
@@ -350,19 +403,17 @@ export class ContainerWrapper {
             name: this.getContainerId(),
             bindMounts: [
                 {
-                    container_folder: "/ogsh/files",
-                    host_folder: `${getHostContainerFilesPath()}/${this.id}`
+                    container_path: "/ogsh/files",
+                    host_path: `${getHostContainerFilesPath()}/${this.id}`
                 },
                 {
-                    container_folder: "/ogsh/startup_files",
-                    host_folder: await getStartupFilesPath(this.options.appId, this.options.variantId),
+                    container_path: "/ogsh/startup_files",
+                    host_path: await getStartupFilesPath(this.options.appId, this.options.variantId),
                     readonly: false
                 }
             ],
             ipv4PortMappings: this.options.ports[4] || [],
-            ipv6PortMappings: this.options.ports[6] || [],
-            maxCpus: globalConfig.segment.maxCpus * this.options.segments,
-            memoryMb: globalConfig.segment.memoryMb * this.options.segments
+            ipv6PortMappings: this.options.ports[6] || []
         });
 
         // TODO sanitise configs
@@ -371,52 +422,10 @@ export class ContainerWrapper {
         await container.start();
         this.logger.info("Started");
 
-        containerEventEmitter.emit("start", this);
-        const sessionStart = Date.now();
-
-        let running = false;
-        (async () => {
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                if (!running) {
-                    return;
-                }
-
-                this.logger.info(`Starting container monitors`, {
-                    attempt
-                });
-                let success = false;
-                await this.monitorContainer(container, sessionStart).then(() => success = true).catch(error => {
-                    this.logger.error(error);
-                });
-                if (success) {
-                    return;
-                }
-            }
-            this.logger.error(new OGSHError("general/unspecified", `Failed to start container monitors for id '${this.id}', container will run but there will be no console logs or statistics`));
-        })();
+        containerEventEmitter.emit("start", this, container);
 
         container.wait().then(output => {
-            containerEventEmitter.emit("stop", this);
-
-            this.mostRecentStats.sessionLength = 0;
-            this.mostRecentStats.online = false;
-            this.mostRecentStats.cpu = {
-                total: 100,
-                used: 0
-            };
-            this.mostRecentStats.memory.used = 0;
-            this.mostRecentStats.network = {
-                in: 0,
-                out: 0
-            };
-            const reason = stopReasons[output?.StatusCode] || "unknown";
-            this.logger.info("Stopped", {
-                reason,
-                appId: this.options.appId,
-                variantId: this.options.variantId,
-                versionId: this.options.versionId,
-                build: version?.currentBuild
-            });
+            containerEventEmitter.emit("stop", this, output);
         });
     }
 
@@ -566,7 +575,37 @@ export class ContainerWrapper {
         this.options.variantId = variantId;
         this.options.versionId = versionId;
         this.options.runtime = version.defaultRuntime;
-        await queueContainerInstall(this, version);
+
+        const globalConfig = await getGlobalConfig();
+        // Install container has one segment to try and reduce the load of decompressing files
+        // TODO maybe also run it at a lower priority?
+        const container = await createDockerContainer({
+            environmentVariables: {
+                CONTAINER_FILES_PATH: "/ogsh/container_files",
+                ARCHIVE_PATH: "/ogsh/archive"
+            },
+            image: "ghcr.io/open-game-server-host/container-installer:main",
+            name: this.getContainerId(),
+            maxCpus: globalConfig.segment.maxCpus,
+            memoryMb: globalConfig.segment.memoryMb,
+            bindMounts: [
+                {
+                    container_path: "/ogsh/container_files",
+                    host_path: `${getHostContainerFilesPath()}/${this.id}`
+                },
+                {
+                    container_path: "/ogsh/archive",
+                    host_path: await getAppArchivePath(appId, variantId, versionId, version.currentBuild),
+                    readonly: true
+                }
+            ],
+            containerReadOnly: true,
+            network: "none"
+        });
+        await container.start();
+        containerEventEmitter.emit("start", this);
+        await container.wait();
+        containerEventEmitter.emit("stop", this);
 
         this.logger.info("Install finished");
     }

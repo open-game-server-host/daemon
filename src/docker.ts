@@ -123,8 +123,8 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 
 		if (options.bindMounts) {
 			options.bindMounts.forEach(options => {
-				let readonly = options.readonly ? "ro" : "rw";
-				dockerCreateOptions.HostConfig.Binds.push(`${options.host_folder}:${options.container_folder}:${readonly}`);
+				const readonly = options.readonly ? "ro" : "rw";
+				dockerCreateOptions.HostConfig.Binds.push(`${options.host_path}:${options.container_path}:${readonly}`);
 			});
 		}
 
