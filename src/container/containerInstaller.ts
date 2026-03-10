@@ -37,7 +37,7 @@ export async function queueContainerInstall(wrapper: ContainerWrapper, version: 
             do {
                 const daemonConfig = await getDaemonConfig();
                 const promises: Promise<void>[] = [];
-                for (let i = 0; i < daemonConfig.maxSimultaneousContainerInstalls; i++) {
+                for (let i = 0; i < Math.max(daemonConfig.maxSimultaneousContainerInstalls, 1); i++) {
                     promises.push(new Promise<void>(async res => {
                         const install = (installQueue || []).shift();
                         if (install) {
