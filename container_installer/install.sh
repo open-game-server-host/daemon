@@ -1,6 +1,5 @@
 #!/bin/sh
-
 set -e
 
-rm -rf "$CONTAINER_FILES_PATH/*"
-7z x "$ARCHIVE_PATH" -bso0 -bsp0 -o"$CONTAINER_FILES_PATH"
+rm -rf "/ogsh/container_files/*"
+7z x "/ogsh/archive.7z" -y -o"/ogsh/container_files"
