@@ -128,6 +128,8 @@ SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
 rm -rf "$SYSTEMD_SERVICE_FILE"
 printf "[Unit]\n" >> $SYSTEMD_SERVICE_FILE
 printf "Description=Open Game Server Host Daemon\n" >> $SYSTEMD_SERVICE_FILE
+printf "After=network-online.target\n" >> $SYSTEMD_SERVICE_FILE
+printf "Wants=network-online.target\n" >> $SYSTEMD_SERVICE_FILE
 printf "[Service]\n" >> $SYSTEMD_SERVICE_FILE
 printf "Type=simple\n" >> $SYSTEMD_SERVICE_FILE
 printf "Restart=always\n" >> $SYSTEMD_SERVICE_FILE
