@@ -3,6 +3,7 @@ export const containerEventEmitter = new EventEmitter();
 
 import { ContainerPorts, ContainerRegisterData, getApp, getGlobalConfig, getVariant, getVersion, getVersionRuntime, Logger, OGSHError, sleep, Version } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
+import { mkdirSync } from "fs";
 import os from "os";
 import path from "path";
 import Stream from "stream";
@@ -11,7 +12,7 @@ import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
 import { createDockerContainer, getDockerContainer, isDockerContainerRunning, pullDockerImage, removeDockerContainer } from "../docker";
-import { getHostContainerFilesPath } from "../env";
+import { getHostAppArchivesPath, getHostContainerFilesPath } from "../env";
 import { sendContainerLogsAndStats } from "../ws/wsClient";
 import { ContainerStats } from "./stats/containerStats";
 import { getCpuMonitor, getMemoryMonitor, getNetworkMonitor, getStorageMonitor } from "./stats/monitor";
@@ -27,7 +28,7 @@ export function getContainerWrappers(): ContainerWrapper[] {
 }
 
 export interface ContainerCreateOptions {
-    environmentVariables: {[key: string]: string};
+    environmentVariables?: {[key: string]: string};
 	maxCpus: number;
 	memoryMb: number;
 	bindMounts?: ContainerCreateBindMountOptions[];
@@ -40,8 +41,8 @@ export interface ContainerCreateOptions {
 }
 
 export interface ContainerCreateBindMountOptions {
-	container_path: string;
-	host_path: string;
+	containerPath: string;
+	hostPath: string;
 	readonly?: boolean;
 }
 
@@ -403,12 +404,12 @@ export class ContainerWrapper {
             name: this.getContainerId(),
             bindMounts: [
                 {
-                    container_path: "/ogsh/files",
-                    host_path: `${getHostContainerFilesPath()}/${this.id}`
+                    containerPath: "/ogsh/files",
+                    hostPath: `${getHostContainerFilesPath()}/${this.id}`
                 },
                 {
-                    container_path: "/ogsh/startup_files",
-                    host_path: await getStartupFilesPath(this.options.appId, this.options.variantId),
+                    containerPath: "/ogsh/startup_files",
+                    hostPath: await getStartupFilesPath(this.options.appId, this.options.variantId),
                     readonly: false
                 }
             ],
@@ -418,15 +419,16 @@ export class ContainerWrapper {
 
         // TODO sanitise configs
 
+        this.startContainer(container);
+    }
+
+    private async startContainer(container: Docker.Container) {
         this.logger.debug(`Starting docker container`);
         await container.start();
         this.logger.info("Started");
-
-        containerEventEmitter.emit("start", this, container);
-
-        container.wait().then(output => {
-            containerEventEmitter.emit("stop", this, output);
-        });
+        this.callStartEvent(container);
+        const output = await container.wait();
+        this.callStopEvent(output);
     }
 
     private async monitorContainer(container: Docker.Container, sessionStart: number = Date.now()) {
@@ -477,7 +479,6 @@ export class ContainerWrapper {
                 let message = data.toString();
                 message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
                 this.pendingLogs.push(message);
-                // console.log(`[${this.id}] ${message}`);
             });
         });
     }
@@ -576,37 +577,38 @@ export class ContainerWrapper {
         this.options.versionId = versionId;
         this.options.runtime = version.defaultRuntime;
 
+        const image = "ghcr.io/open-game-server-host/container-installer:main";
+        await pullDockerImage("ghcr.io", image, this.logger);
+
+        mkdirSync(this.getContainerFilesPath(), { recursive: true });
+
+        await removeDockerContainer(this.getContainerId());
+
         const globalConfig = await getGlobalConfig();
         // Install container has one segment to try and reduce the load of decompressing files
         // TODO maybe also run it at a lower priority?
         const container = await createDockerContainer({
-            environmentVariables: {
-                CONTAINER_FILES_PATH: "/ogsh/container_files",
-                ARCHIVE_PATH: "/ogsh/archive"
-            },
-            image: "ghcr.io/open-game-server-host/container-installer:main",
+            image,
             name: this.getContainerId(),
             maxCpus: globalConfig.segment.maxCpus,
             memoryMb: globalConfig.segment.memoryMb,
             bindMounts: [
                 {
-                    container_path: "/ogsh/container_files",
-                    host_path: `${getHostContainerFilesPath()}/${this.id}`
+                    containerPath: "/ogsh/container_files",
+                    hostPath: `${getHostContainerFilesPath()}/${this.id}`
                 },
                 {
-                    container_path: "/ogsh/archive",
-                    host_path: await getAppArchivePath(appId, variantId, versionId, version.currentBuild),
+                    containerPath: "/ogsh/archive.7z",
+                    hostPath: await getAppArchivePath(appId, variantId, versionId, version.currentBuild, getHostAppArchivesPath()),
                     readonly: true
                 }
             ],
             containerReadOnly: true,
             network: "none"
         });
-        await container.start();
-        containerEventEmitter.emit("start", this);
-        await container.wait();
-        containerEventEmitter.emit("stop", this);
 
+        await this.startContainer(container);
+        
         this.logger.info("Install finished");
     }
 
@@ -623,5 +625,13 @@ export class ContainerWrapper {
 
     log(msg: string) {
         this.pendingLogs.push(msg);
+    }
+
+    private callStartEvent(container: Docker.Container) {
+        containerEventEmitter.emit("start", this, container);
+    }
+
+    private callStopEvent(output?: any) {
+        containerEventEmitter.emit("stop", this, output);
     }
 }

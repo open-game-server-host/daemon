@@ -19,8 +19,8 @@ export async function isAppArchiveLatestBuild(appId: string, variantId: string, 
     return version?.currentBuild === build;
 }
 
-export async function getAppArchivePath(appId: string, variantId: string, versionId: string, build: number): Promise<string> {
-    return `${CONTAINER_APP_ARCHIVES_PATH}/${appId}-${variantId}-${versionId}-${build}.7z`;
+export async function getAppArchivePath(appId: string, variantId: string, versionId: string, build: number, basePath: string = CONTAINER_APP_ARCHIVES_PATH): Promise<string> {
+    return `${basePath}/${appId}-${variantId}-${versionId}-${build}.7z`;
 }
 
 interface PendingDownload {

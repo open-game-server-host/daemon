@@ -72,11 +72,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 		logger.info("Pulling Docker image", {
 			image: fullImageName
 		});
-		docker.pull(fullImageName, {
-			authconfig: {
-				serveraddress: registryUrl
-			}
-		}).then(stream => {
+		docker.pull(fullImageName).then(stream => {
 			docker.modem.followProgress(stream, error => {
 				if (error) {
 					throw new OGSHError("container/image-pull-failed", error);
@@ -98,7 +94,7 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {
 		const parsedEnvVariables: string[] = [];
-        Object.entries(options.environmentVariables).forEach(([key, value]) => {
+        Object.entries(options.environmentVariables || {}).forEach(([key, value]) => {
             parsedEnvVariables.push(`${key}=${value}`);
         });
 
@@ -124,7 +120,7 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 		if (options.bindMounts) {
 			options.bindMounts.forEach(options => {
 				const readonly = options.readonly ? "ro" : "rw";
-				dockerCreateOptions.HostConfig.Binds.push(`${options.host_path}:${options.container_path}:${readonly}`);
+				dockerCreateOptions.HostConfig.Binds.push(`${options.hostPath}:${options.containerPath}:${readonly}`);
 			});
 		}
 

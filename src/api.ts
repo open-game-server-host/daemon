@@ -40,7 +40,18 @@ async function sendApiRequest<T = any>(url: string, path: string, body: any = {}
 
 export async function getDaemonContainers(): Promise<Container[]> {
     const { url } = await getApiConfig();
-    return sendApiRequest<Container[]>(url, `/v1/daemon/containers`);
+    const containers: Container[] = [];
+    let page = 0;
+    while (true) {
+        const response = await sendApiRequest<{ containers: Container[], resultsPerPage: number }>(url, `/v1/daemon/containers`, {
+            page: page++
+        });
+        response.containers.forEach(container => containers.push(container));
+        if (response.containers.length !== response.resultsPerPage) {
+            break;
+        }
+    }
+    return containers;
 }
 
 export async function updateDaemon(data: UpdateDaemonData) {
