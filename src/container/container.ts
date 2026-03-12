@@ -393,38 +393,46 @@ export class ContainerWrapper {
                     return;
                 }
             } while (!await isDockerContainerRunning(container));
-            const stream = await container.stats({
+            
+            const statStream = await container.stats({
                 stream: true
+            }).catch(error => {
+                this.logger.error(error);
             });
-            stream.on("end", () => {
-                stream.removeAllListeners();
-            });
-            stream.on("data", async (data: Buffer) => {
-                if (!running) {
-                    stream.removeAllListeners();
-                    return;
-                }
-                const rawStats = JSON.parse(data.toString());
-                this.mostRecentStats.sessionLength = Date.now() - sessionStart;
-                this.mostRecentStats.online = true;
-                this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats).catch(error => this.mostRecentStats.cpu);
-                this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
-                this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
-            });
+            if (statStream) {
+                statStream.on("end", () => {
+                    statStream.removeAllListeners();
+                });
+                statStream.on("data", async (data: Buffer) => {
+                    if (!running) {
+                        statStream.removeAllListeners();
+                        return;
+                    }
+                    const rawStats = JSON.parse(data.toString());
+                    this.mostRecentStats.sessionLength = Date.now() - sessionStart;
+                    this.mostRecentStats.online = true;
+                    this.mostRecentStats.cpu = await cpuMonitor(this, totalNanoCpus, rawStats.cpu_stats, rawStats.precpu_stats).catch(error => this.mostRecentStats.cpu);
+                    this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
+                    this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
+                });
+            }
 
             const daemonConfig = await getDaemonConfig();
-            await container.logs({
+            const logStream = await container.logs({
                 follow: true,
                 stdout: true,
                 stderr: true,
                 tail: daemonConfig.previousLogsToShowOnConnect
-            }).then(stream => {
-                stream.on("data", (data: Buffer) => {
+            }).catch(error => {
+                this.logger.error(error);
+            });
+            if (logStream) {
+                logStream.on("data", (data: Buffer) => {
                     let message = data.toString();
                     message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
                     this.pendingLogs.push(message);
                 });
-            });
+            }
         })();
 
         const output = await container.wait();
