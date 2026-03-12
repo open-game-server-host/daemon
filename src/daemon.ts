@@ -11,14 +11,14 @@ export function isRunning() {
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import os from "os";
 import { getDaemonContainers, updateDaemon } from "./api";
-import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveDownloader";
+import { cleanupPartiallyDownloadedAppArchives } from "./apps/appArchiveManager";
 import { CONTAINER_APP_ARCHIVES_PATH, CONTAINER_CONTAINER_FILES_PATH } from "./constants";
 import { ContainerWrapper } from "./container/container";
 import { connectToApi, disconnectFromApi } from "./ws/wsClient";
 
 // TODO need to be able to write the api key for key rotations
 export const API_KEY = readFileSync("/ogsh/api_key").toString();
-export const UID = cmd("id -u").trim();
+export const UID = cmd("id -u", true).trim();
 
 export function shutdown() {
     if (!running) {
@@ -40,7 +40,7 @@ async function init() {
 
     await cleanupPartiallyDownloadedAppArchives(logger);
 
-    const totalMemoryMb = os.totalmem() / 1_000_000 - 1024; // 1024mb reserved memory
+    const totalMemoryMb = os.totalmem() / 1_000_000 - 1024; // 1024mb reserved memory, TODO make this configurable per-daemon
     const globalConfig = await getGlobalConfig();
     const update: UpdateDaemonData = {
         cpuArch: process.arch,
