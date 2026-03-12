@@ -12,6 +12,7 @@ interface Daemon {
     containerActionQueueMaxLength: number; // default 3
     cooldownSecondsBetweenDockerImagePull: number; // default 60
     maxSimultaneousContainerInstalls: number; // default 2
+    secondsBetweenContainerStorageCalculation: number; // default 3
 }
 
 const env = parseEnvironmentVariables([
