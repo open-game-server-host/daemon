@@ -1,7 +1,6 @@
 import { getGlobalConfig } from "@open-game-server-host/backend-lib";
 import { CPUStats, MemoryStats, NetworkStats } from "dockerode";
-import fastFolderSize from "fast-folder-size";
-import { existsSync } from "node:fs";
+import { readdirSync, statSync } from "fs";
 import { ContainerWrapper } from "../container";
 import { ContainerCpu, ContainerMemory, ContainerNetwork, ContainerStorage } from "./containerStats";
 import { jvmMemoryMonitor as jvmContainerMemorymonitor } from "./runtimes/jvmMonitor";
@@ -68,29 +67,24 @@ export async function defaultContainerStorageMonitor(wrapper: ContainerWrapper, 
     const globalConfig = await getGlobalConfig();
     const total = (globalConfig.segment.storageGb * wrapper.getOptions().segments) * 1_000_000_000;
 
-    if (!existsSync(containerFilesPath)) {
-        return {
-            total,
-            used: 0
+    // This is more efficient than `du -lsb ${containerFilesPath}` and I hate it
+    let bytes = 0;
+    function calculateFolderSize(path: string): number {
+        for (const file of readdirSync(path)) {
+            const subPath = `${path}/${file}`;
+            const stat = statSync(subPath);
+            if (stat.isDirectory()) {
+                bytes += calculateFolderSize(subPath);
+            }
+            bytes += stat.size;
         }
+        return bytes;
     }
 
-    return new Promise<ContainerStorage>((res, rej) => {
-        fastFolderSize(containerFilesPath, (error, bytes) => {
-            if (error) {
-                rej(`Failed to get size of folder '${containerFilesPath}'`);
-                return;
-            }
-            if (!bytes) {
-                // Folder was probably deleted due to reinstall
-                bytes = 0;
-            }
-            res({
-                total,
-                used: bytes
-            });
-        });
-    })
+    return {
+        total,
+        used: calculateFolderSize(containerFilesPath)
+    }
 }
 
 const cpuMonitors = new Map<string, ContainerCpuMonitor>();
