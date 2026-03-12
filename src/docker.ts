@@ -1,4 +1,4 @@
-import { getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
+import { getGlobalConfig, getMb, Logger, OGSHError } from "@open-game-server-host/backend-lib";
 import Docker from "dockerode";
 import { getDaemonConfig } from "./config/daemonConfig";
 import { ContainerCreateOptions } from "./container/container";
@@ -35,7 +35,7 @@ export async function doesDockerContainerExist(container: string | Docker.Contai
 }
 
 export async function isDockerContainerRunning(container: string | Docker.Container): Promise<boolean> {
-	return await getContainer(container).inspect().then(info => info.State.Running).catch(error => false);
+	return await getContainer(container).inspect().then(info => info.State.Running && !info.State.Dead).catch(error => false);
 }
 
 interface DockerPullPromise {
@@ -44,35 +44,23 @@ interface DockerPullPromise {
 }
 const pullPromises = new Map<string, DockerPullPromise[]>();
 const lastPullTimes = new Map<string, number>();
-export async function pullDockerImage(registryUrl: string, fullImageName: string, logger: Logger) {
+export async function pullDockerImage(fullImageName: string, logger: Logger) {
 	const daemonConfig = await getDaemonConfig();
 	const now = Date.now();
 	const cooldownSecondsRemaining = ((daemonConfig.cooldownSecondsBetweenDockerImagePull * 1000) - (now - (lastPullTimes.get(fullImageName) || 0))) / 1000;
-	if (cooldownSecondsRemaining > 0) {
-		logger.info(`Docker image on pull cooldown`, {
-			image: fullImageName,
-			cooldown: `${Math.ceil(cooldownSecondsRemaining)}s`
-		});
-		return;
-	}
-	lastPullTimes.set(fullImageName, now);
 
-	let pull = !pullPromises.has(fullImageName);
-
-	const promise = new Promise<void>((res, rej) => {
-		const promises = pullPromises.get(fullImageName) || [];
-		promises.push({
-			res,
-			rej
-		});
-		pullPromises.set(fullImageName, promises);
-	});
-
-	if (pull) {
+	if (!pullPromises.has(fullImageName) && cooldownSecondsRemaining <= 0) {
+		pullPromises.set(fullImageName, []);
+		lastPullTimes.set(fullImageName, now);
 		logger.info("Pulling Docker image", {
 			image: fullImageName
 		});
-		docker.pull(fullImageName).then(stream => {
+		const globalConfig = await getGlobalConfig();
+		docker.pull(fullImageName, {
+			authconfig: {
+				serveraddress: globalConfig.dockerRegistryUrl
+			}
+		}).then(stream => {
 			docker.modem.followProgress(stream, error => {
 				if (error) {
 					throw new OGSHError("container/image-pull-failed", error);
@@ -89,7 +77,16 @@ export async function pullDockerImage(registryUrl: string, fullImageName: string
 		});
 	}
 
-	return promise;
+	const promises = pullPromises.get(fullImageName);
+	if (promises) {
+		const promise = new Promise<void>((res, rej) => {
+			promises.push({
+				res,
+				rej
+			});
+		});
+		return promise;
+	}
 }
 
 export async function createDockerContainer(options: ContainerCreateOptions): Promise<Docker.Container> {
@@ -159,9 +156,8 @@ export async function createDockerContainer(options: ContainerCreateOptions): Pr
 		});
 }
 
-export async function removeDockerContainer(containerId: string) {
-    const container = getContainer(containerId);
-    await container.remove({
+export async function removeDockerContainer(container: string | Docker.Container) {
+    await getContainer(container).remove({
         force: true, // Kill container before removing it
         v: true // Remove anonymous volumes
     }).catch(_ => {});
