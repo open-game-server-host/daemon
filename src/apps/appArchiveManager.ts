@@ -1,5 +1,5 @@
 import { DownloadProgress, downloadToFile, getGlobalConfig, getVersion, Logger, OGSHError } from "@open-game-server-host/backend-lib";
-import { existsSync, readdirSync, rmSync } from "fs";
+import { existsSync, readdirSync, renameSync, rmSync } from "fs";
 import { CONTAINER_APP_ARCHIVES_PATH } from "../constants";
 import { API_KEY } from "../daemon";
 
@@ -46,6 +46,11 @@ export async function downloadLatestAppArchive(appId: string, variantId: string,
     }
     const build = version.currentBuild;
 
+    const archivePath = await getAppArchivePath(appId, variantId, versionId, build);
+    if (existsSync(archivePath)) {
+        return;
+    }
+
     const id = getId(appId, variantId, versionId);
     if (!downloadListeners.has(id)) {
         downloadListeners.set(id, []);
@@ -56,16 +61,16 @@ export async function downloadLatestAppArchive(appId: string, variantId: string,
         });
 
         (async () => {
+            const tempArchivePath = `${archivePath}.downloading`;
             let success = false;
             for (let attempt = 1; attempt <= 3; attempt++) {
                 logger.info(`Downloading ${appId} / ${variantId} / ${versionId} / ${build}`, {
                     attempt
                 });
-                const archivePath = await getAppArchivePath(appId, variantId, versionId, build);
                 const globalConfig = await getGlobalConfig();
                 const archiveUrl = `http://${globalConfig.appArchiveUrl}/v1/archive/${appId}/${variantId}/${versionId}/${build}`;
 
-                await downloadToFile(archiveUrl, archivePath, {
+                await downloadToFile(archiveUrl, tempArchivePath, {
                     headers: {
                         authorization: API_KEY
                     }
@@ -85,6 +90,8 @@ export async function downloadLatestAppArchive(appId: string, variantId: string,
             }
 
             if (success) {
+                renameSync(tempArchivePath, archivePath);
+
                 // Remove previous builds of this version
                 for (let i = build - 1; i > 0; i--) {
                     const oldArchivePath = await getAppArchivePath(appId, variantId, versionId, i);
