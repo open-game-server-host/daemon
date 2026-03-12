@@ -7,7 +7,7 @@ import { mkdirSync } from "fs";
 import os from "os";
 import path from "path";
 import Stream from "stream";
-import { downloadLatestAppArchive, getAppArchivePath } from "../apps/appArchiveDownloader";
+import { downloadLatestAppArchive, getAppArchivePath } from "../apps/appArchiveManager";
 import { getDaemonConfig } from "../config/daemonConfig";
 import { getStartupFilesPath } from "../config/startupFilesConfig";
 import { CONTAINER_CONTAINER_FILES_PATH } from "../constants";
@@ -143,14 +143,14 @@ export class ContainerWrapper {
         private readonly id: string,
         private readonly options: ContainerWrapperOptions
     ) {
-        this.logger = new Logger(`CONTAINER: ${id}`);
+        this.logger = new Logger(this.getContainerId());
         this.logger.info("Registered");
 
         this.isRunning().then(async running => {
             if (!running) {
                 return;
             }
-            this.monitorContainer(await getDockerContainer(this.getContainerId()));
+            this.startContainer("app", await getDockerContainer(this.getContainerId()));
         });
 
         (async () => {
@@ -161,10 +161,13 @@ export class ContainerWrapper {
                 throw new OGSHError("app/version-not-found", `tried to get storage monitor for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`);
             }
             const storageMonitor = getStorageMonitor(getVersionRuntime(version));
+            let lastStorageCalculation = 0;
             while (!this.terminated && this.isRunning()) {
                 this.mostRecentStats.timestamp = Date.now();
-                // TODO re-enable storage monitoring
-                // this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
+                if (this.mostRecentStats.timestamp - lastStorageCalculation >= daemonConfig.secondsBetweenContainerStorageCalculation * 1000) {
+                    lastStorageCalculation = this.mostRecentStats.timestamp;
+                    this.mostRecentStats.storage = await storageMonitor(this, containerFilesPath).catch(error => this.mostRecentStats.storage); // Storage needs to be tracked even when the container is offline because people can upload/download files
+                }
                 const logsAndStats: ContainerLogsAndStats = {
                     logs: this.pendingLogs,
                     stats: this.mostRecentStats
@@ -176,60 +179,6 @@ export class ContainerWrapper {
                 await sleep(daemonConfig.websocketEventPushFrequencyMs);
             }
         })();
-
-        containerEventEmitter.addListener("start", (wrapper: ContainerWrapper, container: Docker.Container) => {
-            if (wrapper !== this) {
-                return;
-            }
-            
-            const sessionStart = Date.now();
-
-            let running = false;
-            (async () => {
-                for (let attempt = 1; attempt <= 3; attempt++) {
-                    if (!running) {
-                        return;
-                    }
-
-                    this.logger.info(`Starting container monitors`, {
-                        attempt
-                    });
-                    let success = false;
-                    await this.monitorContainer(container, sessionStart).then(() => success = true).catch(error => {
-                        this.logger.error(error);
-                    });
-                    if (success) {
-                        return;
-                    }
-                }
-                this.logger.error(new OGSHError("general/unspecified", `Failed to start container monitors for id '${this.id}', container will run but there will be no console logs or statistics`));
-            })();
-        });
-
-        containerEventEmitter.addListener("stop", (wrapper: ContainerWrapper, output: any) => {
-            if (wrapper !== this) {
-                return;
-            }
-
-            this.mostRecentStats.sessionLength = 0;
-            this.mostRecentStats.online = false;
-            this.mostRecentStats.cpu = {
-                total: 100,
-                used: 0
-            };
-            this.mostRecentStats.memory.used = 0;
-            this.mostRecentStats.network = {
-                in: 0,
-                out: 0
-            };
-            const reason = stopReasons[output?.StatusCode] || "unknown";
-            this.logger.info("Stopped", {
-                reason,
-                appId: this.options.appId,
-                variantId: this.options.variantId,
-                versionId: this.options.versionId,
-            });
-        });
     }
 
     static async register(id: string, options: ContainerRegisterData): Promise<ContainerWrapper> {
@@ -267,6 +216,7 @@ export class ContainerWrapper {
                         await action();
                     } catch (error) {
                         this.logger.error(error as Error);
+                        this.actionQueue = undefined;
                         break;
                     }
                 }
@@ -370,23 +320,18 @@ export class ContainerWrapper {
         });
 
         if (await this.isRunning()) {
-            this.logger.debug(`Attempted to start but alreayd running`);
             return;
         }
 
         // Validate and update runtime image
-        this.logger.debug(`Pulling docker image`);
-        const globalConfig = await getGlobalConfig();
         const fullDockerImage = await this.getDockerImage();
-        await pullDockerImage(globalConfig.dockerRegistryUrl, fullDockerImage, this.logger);
+        await pullDockerImage(fullDockerImage, this.logger);
 
         // TODO run auto-patcher
 
         // Remove old container to use new runtime image
-        this.logger.debug(`Removing old container`);
         await removeDockerContainer(this.getContainerId());
 
-        this.logger.debug(`Creating environment variables`);
         const app = await getApp(this.options.appId);
         const variant = await getVariant(this.options.appId, this.options.variantId);
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
@@ -396,7 +341,6 @@ export class ContainerWrapper {
             ...version?.environmentVariables
         }
 
-        this.logger.debug(`Creating docker container`);
         const container = await createDockerContainer({
             ...await this.getContainerResources(),
             environmentVariables: environmentVariables,
@@ -419,19 +363,18 @@ export class ContainerWrapper {
 
         // TODO sanitise configs
 
-        this.startContainer(container);
+        this.startContainer("app", container);
     }
 
-    private async startContainer(container: Docker.Container) {
-        this.logger.debug(`Starting docker container`);
-        await container.start();
-        this.logger.info("Started");
-        this.callStartEvent(container);
-        const output = await container.wait();
-        this.callStopEvent(output);
-    }
+    private async startContainer(type: "app" | "install", container: Docker.Container, removeOnExit: boolean = false) {
+        if (!await isDockerContainerRunning(container)) {
+            await container.start();
+            this.logger.info(`Started ${type}`);
+            this.callStartEvent(container);
+        }
 
-    private async monitorContainer(container: Docker.Container, sessionStart: number = Date.now()) {
+        const sessionStart = Date.now();
+        let running = true;
         const version = await getVersion(this.options.appId, this.options.variantId, this.options.versionId);
         if (!version) {
             throw new OGSHError("app/version-not-found", `tried to run monitorContainer for container id '${this.id}' but app id '${this.options.appId}' variant id '${this.options.variantId}' version id '${this.options.versionId}' not found`)
@@ -440,20 +383,22 @@ export class ContainerWrapper {
         const cpuMonitor = getCpuMonitor(runtime);
         const memoryMonitor = getMemoryMonitor(runtime);
         const networkMonitor = getNetworkMonitor(runtime);
-        const totalNanoCpus = ((await getGlobalConfig()).segment.maxCpus) * this.options.segments * 1_000_000_000;
-        const thisWrapper = this;
-        await container.stats({
-            stream: true
-        }).then(stream => {
-            let running = true;
-            function stopHandler(wrapper: ContainerWrapper) {
-                if (wrapper === thisWrapper) {
-                    running = false;
-                    containerEventEmitter.removeListener("stop", stopHandler);
-                }
-            }
-            containerEventEmitter.addListener("stop", stopHandler);
+        const globalConfig = await getGlobalConfig();
+        const totalNanoCpus = globalConfig.segment.maxCpus * this.options.segments * 1_000_000_000;
 
+        (async () => {
+            do {
+                await sleep(500);
+                if (!running) {
+                    return;
+                }
+            } while (!await isDockerContainerRunning(container));
+            const stream = await container.stats({
+                stream: true
+            });
+            stream.on("end", () => {
+                stream.removeAllListeners();
+            });
             stream.on("data", async (data: Buffer) => {
                 if (!running) {
                     stream.removeAllListeners();
@@ -466,21 +411,47 @@ export class ContainerWrapper {
                 this.mostRecentStats.memory = await memoryMonitor(this, rawStats.memory_stats).catch(error => this.mostRecentStats.memory);
                 this.mostRecentStats.network = await networkMonitor(this, rawStats.networks).catch(error => this.mostRecentStats.network);
             });
-        });
 
-        const daemonConfig = await getDaemonConfig();
-        await container.logs({
-            follow: true,
-            stdout: true,
-            stderr: true,
-            tail: daemonConfig.previousLogsToShowOnConnect
-        }).then(stream => {
-            stream.on("data", (data: Buffer) => {
-                let message = data.toString();
-                message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
-                this.pendingLogs.push(message);
+            const daemonConfig = await getDaemonConfig();
+            await container.logs({
+                follow: true,
+                stdout: true,
+                stderr: true,
+                tail: daemonConfig.previousLogsToShowOnConnect
+            }).then(stream => {
+                stream.on("data", (data: Buffer) => {
+                    let message = data.toString();
+                    message = message.substring(8, message.length - 1); // Remove first 8 bytes and trailling new line
+                    this.pendingLogs.push(message);
+                });
             });
+        })();
+
+        const output = await container.wait();
+        running = false;
+        this.mostRecentStats.sessionLength = 0;
+        this.mostRecentStats.online = false;
+        this.mostRecentStats.cpu = {
+            total: 100,
+            used: 0
+        };
+        this.mostRecentStats.memory.used = 0;
+        this.mostRecentStats.network = {
+            in: 0,
+            out: 0
+        };
+        const reason = stopReasons[output?.StatusCode] || "unknown";
+        this.logger.info(`Stopped ${type}`, {
+            reason,
+            appId: this.options.appId,
+            variantId: this.options.variantId,
+            versionId: this.options.versionId,
         });
+        this.callStopEvent(output);
+
+        if (removeOnExit) {
+            await removeDockerContainer(container);
+        }
     }
 
     stop() {
@@ -578,7 +549,7 @@ export class ContainerWrapper {
         this.options.runtime = version.defaultRuntime;
 
         const image = "ghcr.io/open-game-server-host/container-installer:main";
-        await pullDockerImage("ghcr.io", image, this.logger);
+        await pullDockerImage(image, this.logger);
 
         mkdirSync(this.getContainerFilesPath(), { recursive: true });
 
@@ -589,7 +560,7 @@ export class ContainerWrapper {
         // TODO maybe also run it at a lower priority?
         const container = await createDockerContainer({
             image,
-            name: this.getContainerId(),
+            name: `${this.getContainerId()}_installer`,
             maxCpus: globalConfig.segment.maxCpus,
             memoryMb: globalConfig.segment.memoryMb,
             bindMounts: [
@@ -607,7 +578,7 @@ export class ContainerWrapper {
             network: "none"
         });
 
-        await this.startContainer(container);
+        await this.startContainer("install", container, true);
         
         this.logger.info("Install finished");
     }
