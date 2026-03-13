@@ -31,7 +31,7 @@ fi
 
 SERVICE_PATH="/etc/systemd/system/ogshd.service"
 SERVICE_URL="https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/install_files/ogshd.service"
-NEW_SERVICE_PATH="/etc/systed/system/ogshd.service.update"
+NEW_SERVICE_PATH="/etc/systemd/system/ogshd.service.update"
 curl --output $NEW_SERVICE_PATH $SERVICE_URL
 SERVICE_EXISTING_MD5="$(md5sum $SERVICE_PATH | cut -d' ' -f1)"
 SERVICE_UPDATED_MD5="$(md5sum $NEW_SERVICE_PATH | cut -d' ' -f1)"
