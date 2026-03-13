@@ -51,13 +51,11 @@ if [ ! -z "$RESTART" ]; then
 
     if [ -f "$NEW_START_SCRIPT_PATH" ]; then
         mv -f "$NEW_START_SCRIPT_PATH" "$START_SCRIPT_PATH"
-        rm "$NEW_START_SCRIPT_PATH"
         chown $USER:$USER $START_SCRIPT_PATH
     fi
 
     if [ -f "$NEW_SERVICE_PATH" ]; then
         mv -f "$NEW_SERVICE_PATH" "$SERVICE_PATH"
-        rm "$NEW_SERVICE_PATH"
     fi
 
     systemctl daemon-reload
