@@ -28,7 +28,7 @@ async function sendApiRequest<T = any>(url: string, path: string, body: any = {}
             }
         } catch (error) {
         }
-        throw new OGSHError("general/unspecified", `failed to send api request to '${url}', status: ${response.status}, status text: ${response.statusText}, body: ${body}`);
+        throw new OGSHError("api/request-failed", `failed to send api request to '${url}', status: ${response.status}, status text: ${response.statusText}, body: ${body}`);
     }
 
     const responseBody = await response.text();

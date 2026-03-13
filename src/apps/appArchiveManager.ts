@@ -102,7 +102,7 @@ export async function downloadLatestAppArchive(appId: string, variantId: string,
                 logger.info(`Finished downloading ${appId} / ${variantId} / ${versionId} / ${build}`);
                 getDownloadListeners(id).forEach(listener => listener.res());
             } else {
-                const error = new OGSHError("general/unspecified", `Failed to download ${appId} / ${variantId} / ${versionId} / ${build}`);
+                const error = new OGSHError("app/download-failed", `Failed to download ${appId} / ${variantId} / ${versionId} / ${build}`);
                 getDownloadListeners(id).forEach(listener => listener.rej(error));
             }
             downloadListeners.delete(id);

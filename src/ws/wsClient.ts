@@ -37,12 +37,12 @@ export async function connectToApi() {
                     if (json.error) {
                         throw new OGSHError(json.error as Errors, json.info);
                     }
-                    if (!json.route) throw new OGSHError("general/unspecified", `'route' missing`);
-                    if (!json.body) throw new OGSHError("general/unspecified", `'body' missing`);
-                    if (!json.action) throw new OGSHError("general/unspecified", `'action' missing`);
+                    if (!json.route) throw new OGSHError("ws/invalid-body", `'route' missing`);
+                    if (!json.body) throw new OGSHError("ws/invalid-body", `'body' missing`);
+                    if (!json.action) throw new OGSHError("ws/invalid-body", `'action' missing`);
 
                     const router = routers.get(json.route);
-                    if (!router) throw new OGSHError("general/unspecified", `router '${json.route}' not found`);
+                    if (!router) throw new OGSHError("ws/invalid-route", `router '${json.route}' not found`);
 
                     router.call(json.action, ws!, json.body, locals, logger);
                 } catch (error) {

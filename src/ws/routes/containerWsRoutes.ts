@@ -18,9 +18,9 @@ function validateContainerIdBody(ws: WebSocket, body: ContainerIdBody, locals: C
 }
 
 async function validateContainerAppBody(ws: WebSocket, body: ContainerAppData & ContainerIdBody, locals: ContainerLocals) {
-    if (typeof body.appId !== "string") throw new OGSHError("general/unspecified", `'appId' must be a string`);
-    if (typeof body.variantId !== "string") throw new OGSHError("general/unspecified", `'variantId' must be a string`);
-    if (typeof body.versionId !== "string") throw new OGSHError("general/unspecified", `'versionId' must be a string`);
+    if (typeof body.appId !== "string") throw new OGSHError("ws/invalid-body", `'appId' must be a string`);
+    if (typeof body.variantId !== "string") throw new OGSHError("ws/invalid-body", `'variantId' must be a string`);
+    if (typeof body.versionId !== "string") throw new OGSHError("ws/invalid-body", `'versionId' must be a string`);
     const version = await getVersion(body.appId, body.variantId, body.versionId);
     if (!version) throw new OGSHError("app/version-not-found", `could not find app id '${body.appId}' variant id '${body.variantId}' version id '${body.versionId}'`);
 }
@@ -30,7 +30,7 @@ function validateContainerPortsBody(ws: WebSocket, body: ContainerPortsData, loc
 }
 
 async function validateContainerRegisterBody(ws: WebSocket, body: ContainerRegisterData & ContainerIdBody, locals: any) {
-    if (typeof body.containerId !== "string") throw new OGSHError("general/unspecified", `'containerId' must be a string`);
+    if (typeof body.containerId !== "string") throw new OGSHError("ws/invalid-body", `'containerId' must be a string`);
 }
 containerWsRouter.register("register", validateContainerRegisterBody, validateContainerPortsBody, async (ws, body: ContainerRegisterData, locals: any) => {
     const wrapper = await ContainerWrapper.register(body.containerId, body);
@@ -57,7 +57,7 @@ interface ContainerCommandBody extends ContainerIdBody {
     command: string;
 }
 function validateContainerCommandBody(ws: WebSocket, body: ContainerCommandBody, locals: ContainerLocals) {
-    if (typeof body.command !== "string") throw new OGSHError("general/unspecified", `'command' field must be a string`);
+    if (typeof body.command !== "string") throw new OGSHError("ws/invalid-body", `'command' field must be a string`);
 }
 containerWsRouter.register("command", validateContainerIdBody, validateContainerCommandBody, (ws, body: ContainerCommandBody, locals: ContainerLocals) => {
     locals.wrapper.command(body.command);
@@ -78,7 +78,7 @@ async function validateContainerRuntimeBody(ws: WebSocket, body: ContainerRuntim
     const { appId, variantId, versionId } = locals.wrapper.getOptions();
     const version = await getVersion(appId, variantId, versionId);
     if (!version) throw new OGSHError("app/version-not-found", `app invalid for container id '${body.containerId}', app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
-    if (!version.supportedRuntimes.includes(body.runtime)) throw new OGSHError("general/unspecified", `runtime invalid for container id '${body.containerId}' app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
+    if (!version.supportedRuntimes.includes(body.runtime)) throw new OGSHError("ws/invalid-body", `runtime invalid for container id '${body.containerId}' app id '${appId}' variant id '${variantId}' version id '${versionId}'`);
 }
 containerWsRouter.register("runtime", validateContainerIdBody, validateContainerRuntimeBody, (ws, body: ContainerRuntimeBody, locals: ContainerLocals) => {
     locals.wrapper.updateOptions({

@@ -204,7 +204,7 @@ export class ContainerWrapper {
             this.actionQueue = [];
         }
         if (this.actionQueue.length >= daemonConfig.containerActionQueueMaxLength) {
-            throw new OGSHError("general/unspecified", `container id '${this.id}' max action queue length reached (${this.actionQueue.length})`);
+            throw new OGSHError("container/action-queue-limit", `container id '${this.id}' max action queue length reached (${this.actionQueue.length})`);
         }
         this.actionQueue.push(action.bind(this));
 
