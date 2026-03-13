@@ -1,0 +1,16 @@
+[Unit]
+Description=Open Game Server Host Daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+WorkingDirectory=/home/open-game-server-host/daemon
+User=open-game-server-host
+Group=docker
+ExecStart=/bin/bash start.sh
+
+[Install]
+WantedBy=multi-user.target

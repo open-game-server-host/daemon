@@ -1,23 +1,30 @@
 #!/bin/bash
 set -e
 
+API_KEY=$1
+if [ -z "$API_KEY" ]; then
+    echo "ERROR Must provide API key as an argument!"
+    exit 1
+fi
+
+BRANCH=$2
+if [ -z "$BRANCH" ]; then
+    BRANCH="main"
+fi
+echo "INFO  Using branch '$BRANCH'"
+
 # Make sure system supports systemd
 if [ -z "$(ls /bin | grep systemd | head -1)" ]; then
-    printf "ERROR systemd not supported!\n"
+    echo "ERROR systemd not supported!"
     exit 1
 fi
 
 if [ $EUID != 0 ]; then
-    printf "INFO  Running as root\n"
+    echo "INFO  Running as root"
     sudo "$0" "$@"
     exit $?
 fi
 
-BRANCH=$1
-if [ -z "$BRANCH" ]; then
-    BRANCH="main"
-fi
-printf "INFO  Using branch '$BRANCH'\n"
 sleep 3
 
 # Install Docker, jq, curl
@@ -30,13 +37,13 @@ function get_distro() {
             echo $ID_LIKE
         fi
     else
-        printf "ERROR Not a linux machine, exiting\n"
+        echo "ERROR Not a linux machine, exiting"
         exit 1
     fi
 }
 DISTRO=$(get_distro)
-printf "INFO  Distribution: $DISTRO\n"
-printf "INFO  Installing required packages\n"
+echo "INFO  Distribution: $DISTRO"
+echo "INFO  Installing required packages"
 if [ "$DISTRO" = "debian" ]; then
     apt update --fix-missing
     apt install -y docker.io jq curl
@@ -47,23 +54,20 @@ elif [ "$DISTRO" = "arch" ]; then
     yes | pacman -Syu # Update packages
     yes | pacman -Syu docker jq curl
 else
-    printf "ERROR Unknown distribution '$DISTRO'"
+    echo "ERROR Unknown distribution '$DISTRO'"
     exit 1
 fi
 
 # Validate API key
-DAEMON_ID="null"
-while [ "$DAEMON_ID" = "null" ]; do
-    read -p "Enter API key: " DAEMON_API_KEY
-    json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
-    printf "INFO  Received from API: $json\n"
-    DAEMON_ID=$(jq -r .data.id <<< "$json")
-    if [ "$DAEMON_ID" = "null" ]; then
-        printf "INFO  Invalid API key\n"
-    else
-        printf "INFO  Daemon ID: $DAEMON_ID\n"
-    fi
-done
+read -p "Enter API key: " DAEMON_API_KEY
+json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
+echo "INFO  Received from API: $json"
+DAEMON_ID=$(jq -r .data.id <<< "$json")
+if [ "$DAEMON_ID" = "null" ]; then
+    echo "ERROR Invalid API key"
+else
+    echo "INFO  Daemon ID: $DAEMON_ID"
+fi
 
 # Find docker.sock
 DOCKER_SOCK_PATH="/var/run/docker.sock"
@@ -101,7 +105,7 @@ printf "$DAEMON_API_KEY" > "$API_KEY_PATH"
 chmod 600 $API_KEY_PATH
 ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
 START_SCRIPT_PATH="$WORK_DIR/start.sh"
-curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/start.sh" > $START_SCRIPT_PATH
+curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/install_files/start.sh" > $START_SCRIPT_PATH
 chmod +x $START_SCRIPT_PATH
 chmod 760 $START_SCRIPT_PATH
 printf "$APP_ARCHIVES_PATH" > "$WORK_DIR/app_archives_path"
@@ -122,25 +126,10 @@ chown -R $USER:$USER "$CONTAINER_FILES_PATH"
 chown -R $USER:$USER "$STARTUP_FILES_PATH"
 
 # Add to systemd
-printf "INFO  Creating systemd service\n"
-SERVICE_NAME="ogsh_daemon.service"
-SYSTEMD_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME"
-rm -rf "$SYSTEMD_SERVICE_FILE"
-printf "[Unit]\n" >> $SYSTEMD_SERVICE_FILE
-printf "Description=Open Game Server Host Daemon\n" >> $SYSTEMD_SERVICE_FILE
-printf "After=network-online.target\n" >> $SYSTEMD_SERVICE_FILE
-printf "Wants=network-online.target\n" >> $SYSTEMD_SERVICE_FILE
-printf "[Service]\n" >> $SYSTEMD_SERVICE_FILE
-printf "Type=simple\n" >> $SYSTEMD_SERVICE_FILE
-printf "Restart=always\n" >> $SYSTEMD_SERVICE_FILE
-printf "RestartSec=1\n" >> $SYSTEMD_SERVICE_FILE
-printf "WorkingDirectory=$WORK_DIR\n" >> $SYSTEMD_SERVICE_FILE
-printf "User=$USER\n" >> $SYSTEMD_SERVICE_FILE
-printf "Group=docker\n" >> $SYSTEMD_SERVICE_FILE
-printf "ExecStart=/bin/bash $START_SCRIPT_PATH\n" >> $SYSTEMD_SERVICE_FILE
-printf "[Install]\n" >> $SYSTEMD_SERVICE_FILE
-printf "WantedBy=multi-user.target\n" >> $SYSTEMD_SERVICE_FILE
-systemctl enable $SERVICE_NAME
+echo "INFO  Creating systemd service"
+curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/install_files/ogshd.service" > /etc/systemd/system/ogshd.service
+systemctl enable ogshd.service
 
-printf "INFO  Install finished\n"
-printf "INFO  Restart your system to start the daemon\n"
+echo "INFO  Install finished"
+echo "INFO  Restart your system to start the daemon"
+echo "INFO  Monitor ogshd output using 'journalctl -fu ogshd'"
