@@ -8,8 +8,6 @@ Type=simple
 Restart=always
 RestartSec=1
 WorkingDirectory=/home/open-game-server-host/daemon
-User=open-game-server-host
-Group=docker
 ExecStart=/bin/bash start.sh
 
 [Install]
