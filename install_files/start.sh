@@ -45,7 +45,7 @@ else
     RESTART="true"
 fi
 
-if [ -z "$RESTART" ]; then
+if [ ! -z "$RESTART" ]; then
     echo "INFO  Restarting to update"
     sleep 3
 
