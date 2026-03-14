@@ -59,12 +59,12 @@ else
 fi
 
 # Validate API key
-read -p "Enter API key: " DAEMON_API_KEY
-json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $DAEMON_API_KEY")
+json=$(curl -s -X GET https://api.opengameserverhost.com/v1/daemon/ -H "authorization: $API_KEY")
 echo "INFO  Received from API: $json"
 DAEMON_ID=$(jq -r .data.id <<< "$json")
 if [ "$DAEMON_ID" = "null" ]; then
     echo "ERROR Invalid API key"
+    exit 1
 else
     echo "INFO  Daemon ID: $DAEMON_ID"
 fi
@@ -101,7 +101,7 @@ fi
 adduser $USER --disabled-password --disabled-login --home $HOME_DIR --gecos ""
 mkdir -p $WORK_DIR
 API_KEY_PATH="$WORK_DIR/api_key"
-printf "$DAEMON_API_KEY" > "$API_KEY_PATH"
+printf "$API_KEY" > "$API_KEY_PATH"
 chmod 600 $API_KEY_PATH
 ln -s $DOCKER_SOCK_PATH "$WORK_DIR/docker.sock"
 START_SCRIPT_PATH="$WORK_DIR/start.sh"
@@ -130,6 +130,7 @@ echo "INFO  Creating systemd service"
 curl "https://raw.githubusercontent.com/open-game-server-host/daemon/refs/heads/$BRANCH/install_files/ogshd.service" > /etc/systemd/system/ogshd.service
 systemctl enable ogshd.service
 
+echo ""
 echo "INFO  Install finished"
 echo "INFO  Restart your system to start the daemon"
 echo "INFO  Monitor ogshd output using 'journalctl -fu ogshd'"
