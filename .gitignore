@@ -6,3 +6,6 @@ container_files/
 startup_files/
 api_key
 docker.sock
+app_archives_path
+container_files_path
+startup_files_path
